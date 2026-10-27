@@ -293,7 +293,7 @@
   if (qf) {
     function upd() {
       var p = parseFloat($('#qfParams').value) || 0, bpw = parseFloat($('#qfBits').value), vram = parseFloat($('#qfVram').value);
-      var w = p * 1e9 * bpw / 8 / 1e9, total = w * 1.15 + 1.0;
+      var w = p * 1e9 * bpw / 8 / 1073741824, total = w * 1.05 + 1.0; // GiB, same convention as the full calculator
       $('#qfWeights').textContent = w.toFixed(1) + ' GB';
       $('#qfTotal').textContent = total.toFixed(1) + ' GB';
       var v = $('#qfVerdict');
