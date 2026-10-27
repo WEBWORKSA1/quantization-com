@@ -1,0 +1,136 @@
+---
+title: LLM quantization: the practical 2026 guide | Quantization.com
+description: Why and how to quantize large language models: memory math, PTQ vs QAT, GPTQ, AWQ, NF4, GGUF, SmoothQuant, FP8 and FP4, and how to choose for your hardware.
+h1: LLM quantization: the complete practical guide
+track: ai
+read: 10
+summary: Memory math, method families from GPTQ to NVFP4, quality metrics, and a hardware-first checklist for quantizing LLMs.
+---
+<p class="lede">LLM quantization stores a language model's weights, and sometimes its activations, in fewer bits than the 16 it was trained with, usually 8 or 4. Done well, it cuts memory roughly 2–4× and often speeds up generation, with a quality loss you can measure and usually accept. This guide covers why it works, the memory math, the main method families, and how to pick a format for your hardware.</p>
+
+<h2 id="why-quantize">Why quantize an LLM</h2>
+<p>There are three reasons, and they compound:</p>
+<ul>
+<li><strong>Memory.</strong> The weights have to fit in GPU VRAM, unified memory or RAM. At 16 bits, every billion parameters takes 2 GB.</li>
+<li><strong>Bandwidth.</strong> To generate each new token, the model reads essentially all of its weights from memory. The AWQ paper's analysis shows that in FP16 this decoding step has an arithmetic intensity of only about 1 FLOP per byte, far below what GPUs can compute. It is limited by memory, not by compute. Fewer bytes per weight means more tokens per second.</li>
+<li><strong>Cost.</strong> A smaller model fits on fewer or cheaper GPUs, or on a laptop, and leaves room for longer contexts and bigger batches.</li>
+</ul>
+<p>A rough ceiling for single-stream decoding is memory bandwidth ÷ bytes read per token. At a hypothetical 1,000 GB/s, a 16 GB model can't exceed about 62 tokens/s, while a 4.9 GB version could approach 204. Real throughput is lower.</p>
+
+<h2 id="core-concepts">Core concepts: what gets quantized and when</h2>
+<h3>Weight-only vs weight-and-activation</h3>
+<p><strong>Weight-only</strong> schemes (written W4A16 or W8A16) store weights in low precision and dequantize them on the fly. The matrix multiplications themselves still run in 16-bit. This directly attacks the bandwidth bottleneck, which is why it dominates local and single-user inference.</p>
+<p><strong>Weight-and-activation</strong> schemes (W8A8, FP8, FP4) quantize both operands so the multiply runs on low-precision tensor cores. That helps compute-bound work such as long prompts and large batches. It is harder, because activations contain large outliers.</p>
+<h3>PTQ vs QAT</h3>
+<p><strong>Post-training quantization (PTQ)</strong> converts a finished checkpoint. Some variants need nothing extra (round-to-nearest). Others need a small calibration set (GPTQ, AWQ, imatrix). <strong>Quantization-aware training (QAT)</strong> simulates rounding during training or fine-tuning, so the model learns weights that survive it. QAT usually holds up better at very low bit widths but needs a training pipeline. Most downloadable quantized models are PTQ, though some vendors now ship low-precision checkpoints directly: the gpt-oss models were post-trained with MXFP4 MoE weights. More in <a href="{{root}}learn/ptq-vs-qat.html">PTQ vs QAT</a>.</p>
+<h3>Granularity</h3>
+<p>Every format shares a scale across a group of values. Per-tensor scales are cheap but crude. Per-channel or per-group scales, typically every 32–256 weights, follow the local range better. They cost a fraction of a bit per weight, which is why "4-bit" formats land at about 4.1–4.9 bits per weight.</p>
+
+<div data-cta="lead"></div>
+
+<h2 id="memory-math">Memory math</h2>
+<p>The weight footprint is simple:</p>
+<div class="formula">bytes ≈ parameters × bits per weight ÷ 8</div>
+<div class="example">
+<h3>Worked example: 8B and 70B models</h3>
+<div class="table-wrap"><table>
+<caption>Weights only, decimal GB, before scale overhead</caption>
+<thead><tr><th>Precision</th><th>8B model</th><th>70B model</th></tr></thead>
+<tbody>
+<tr><td>FP16 / BF16 (16 bits)</td><td>8 × 2 = 16 GB</td><td>70 × 2 = 140 GB</td></tr>
+<tr><td>8-bit</td><td>8 × 1 = 8 GB</td><td>70 × 1 = 70 GB</td></tr>
+<tr><td>4-bit (nominal)</td><td>8 × 0.5 = 4 GB</td><td>70 × 0.5 = 35 GB</td></tr>
+<tr><td>4-bit at 4.89 bpw (GGUF Q4_K_M)</td><td>8.03 × 4.89 ÷ 8 ≈ 4.9 GB</td><td>70.6 × 4.89 ÷ 8 ≈ 43 GB</td></tr>
+</tbody></table></div>
+<p>The last row uses Llama 3.1's actual parameter counts. It matches the llama.cpp quantize README, which lists Q4_K_M sizes of 4.9 GB and 43.1 GB for the 8B and 70B models.</p>
+<p>Then add the <strong>KV cache</strong>: 2 × layers × KV heads × head dimension × bytes per element, per token. Llama 3.1 8B has 32 layers, 8 KV heads and a head dimension of 128, which in FP16 gives 2 × 32 × 8 × 128 × 2 = 131,072 bytes (128 KiB) per token, or 1 GiB at 8,192 tokens. The 70B model has 80 layers, giving 320 KiB per token and 2.5 GiB at 8,192 tokens. Leave headroom for activations and runtime buffers on top of that. See <a href="{{root}}learn/kv-cache-quantization.html">KV cache quantization</a> for shrinking the cache itself.</p>
+</div>
+<div data-cta="tool" data-tool="vram-calculator"></div>
+<p>The <a href="{{root}}tools/vram-calculator.html">VRAM calculator</a> runs these numbers for any model and context.</p>
+
+<h2 id="measuring-quality">Measuring quality loss: perplexity and KL divergence</h2>
+<p>Bit width alone doesn't tell you quality. The two standard measures are:</p>
+<ul>
+<li><strong>Perplexity (PPL)</strong> is the exponential of the average negative log-likelihood the model assigns to each true next token in a test text. Lower is better. It is comparable only between versions of the same model with the same tokenizer and test text, never across different models.</li>
+<li><strong>KL divergence (KLD)</strong> measures how far the quantized model's full next-token probability distribution has moved from the original model's, averaged over tokens. Zero means identical. It is more sensitive than perplexity, because errors in opposite directions can cancel in PPL but not in KLD.</li>
+</ul>
+<p>llama.cpp's <code>llama-perplexity</code> tool can record the FP16 model's output distributions and then report mean KLD, the change in perplexity, and how often both models pick the same top token. On its published Llama 3 8B scoreboard, mean KLD is about 0.0014 for Q8_0 and 0.031 for Q4_K_M, which shows the gap between near-lossless and "good 4-bit". Always follow up with task tests (code, maths, long-context retrieval, your own prompts), where low-bit damage often appears first.</p>
+
+<h2 id="method-families">The major method families</h2>
+<h3>Round-to-nearest (RTN)</h3>
+<p>Divide by a scale, round, and store. No data is needed. Applied to weights at 8 bits with small blocks, it is close to lossless: llama.cpp's Q8_0 is exactly this. At 4 bits and below, plain RTN loses noticeably more quality, and the methods below were built to recover it.</p>
+<h3>GPTQ</h3>
+<p>GPTQ (Frantar et al., arXiv 2210.17323) quantizes one layer at a time. It processes weights column by column, using approximate second-order (inverse-Hessian) information from calibration inputs to adjust the remaining weights after each rounding. The paper reports quantizing 175B-parameter models to 3–4 bits in about four GPU hours with little accuracy loss, using 128 random 2,048-token segments of C4 as calibration data.</p>
+<h3>AWQ</h3>
+<p>AWQ (Lin et al., arXiv 2306.00978) observes that protecting about 1% of salient weights greatly reduces error, and that you find them by looking at <em>activation</em> magnitudes, not weight magnitudes. Instead of keeping those weights in mixed precision, it scales the salient channels up before quantizing, an equivalent transformation. It needs no backpropagation, and the paper's default setting is 4-bit weights in groups of 128.</p>
+<h3>bitsandbytes: LLM.int8() and NF4</h3>
+<p>LLM.int8() (Dettmers et al., arXiv 2208.07339) quantizes matrix multiplications vector-wise to 8 bits. It routes the rare outlier feature dimensions through 16-bit, so more than 99.9% of values are still multiplied in 8-bit. QLoRA (arXiv 2305.14314) introduced <strong>NF4</strong>, a 4-bit type whose 16 levels sit at quantiles of a normal distribution, with blocks of 64. It also introduced <strong>double quantization</strong>, which quantizes the scales themselves and saves about 0.37 bits per parameter. Together these let a 65B model be fine-tuned on a single 48 GB GPU. In Hugging Face Transformers you can apply NF4 on the fly:</p>
+<pre><code>from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+import torch
+
+cfg = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_use_double_quant=True,
+    bnb_4bit_compute_dtype=torch.bfloat16,
+)
+model = AutoModelForCausalLM.from_pretrained(model_id, quantization_config=cfg)</code></pre>
+<h3>GGUF k-quants and i-quants</h3>
+<p>llama.cpp's GGUF formats use blocks with their own scales. <strong>K-quants</strong> (Q2_K–Q6_K) use 256-weight super-blocks, and the _S/_M/_L mixes give sensitive tensors more bits. <strong>I-quants</strong> (IQ1_S–IQ4_XS) use lattice codebooks and non-linear levels to reach very low bit rates, guided by an importance matrix computed from calibration text. The <a href="{{root}}learn/gguf-quant-types.html">GGUF quant types guide</a> covers every type.</p>
+<h3>SmoothQuant (W8A8)</h3>
+<p>SmoothQuant (Xiao et al., arXiv 2211.10438) makes INT8 activations practical. Activation outliers sit in a few channels, so it divides each activation channel by a smoothing factor s<sub>j</sub> = max|X<sub>j</sub>|<sup>α</sup> / max|W<sub>j</sub>|<sup>1−α</sup> and multiplies the matching weights by the same factor. The model computes exactly the same function, but both operands become easy to quantize. The paper's general default is α = 0.5.</p>
+<h3>FP8</h3>
+<p>FP8 (Micikevicius et al., arXiv 2209.05433) defines two 8-bit floating-point encodings: E4M3, which favours precision, and E5M2, which favours range. vLLM's FP8 path stores weights as E4M3. Floating-point levels follow the data's magnitude, which makes FP8 W8A8 more forgiving than INT8. FP8 compute needs compute capability 8.9 or higher (Ada Lovelace, Hopper, Blackwell). On Turing and Ampere GPUs, vLLM runs FP8 checkpoints as weight-only W8A16.</p>
+<h3>MXFP4 and NVFP4</h3>
+<p>Both formats store 4-bit E2M1 floating-point elements with a shared block scale. <strong>MXFP4</strong>, from the Open Compute Project's Microscaling (MX) specification, uses blocks of 32 with a power-of-two E8M0 scale: 4 + 8/32 = 4.25 bits per value. <strong>NVFP4</strong> uses blocks of 16 with an FP8 E4M3 scale plus a per-tensor FP32 scale, about 4.5 bits per value, and is native to NVIDIA Blackwell. The finer scaling reduces error at a small cost in size. The <a href="{{root}}learn/number-formats.html">number formats guide</a> compares the bit layouts.</p>
+
+<h2 id="choose-by-hardware">Choosing a format by hardware</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Hardware</th><th>Typical formats</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>NVIDIA GPU, serving (e.g. vLLM)</td><td>AWQ or GPTQ INT4, FP8, NVFP4</td><td>FP8 W8A8 needs Ada, Hopper or Blackwell. NVFP4 needs Blackwell. INT4 weight-only runs on older cards.</td></tr>
+<tr><td>NVIDIA GPU, single user</td><td>GGUF via llama.cpp, or bitsandbytes NF4 in Transformers</td><td>bitsandbytes lists Turing or newer for LLM.int8() and Pascal or newer for NF4.</td></tr>
+<tr><td>Apple Silicon</td><td>GGUF (llama.cpp, Metal), MLX quantized models</td><td>Unified memory lets large models load. llama.cpp calls Apple silicon a first-class platform. MLX quantizes with <code>mlx_lm.convert --model &lt;repo&gt; -q</code>.</td></tr>
+<tr><td>CPU only</td><td>GGUF k-quants or i-quants</td><td>llama.cpp has AVX, AVX2, AVX-512, AMX and NEON paths, and can split layers between CPU and GPU.</td></tr>
+</tbody></table></div>
+<p>See <a href="{{root}}learn/hardware-for-local-llms.html">hardware for local LLMs</a>, <a href="{{root}}learn/gptq-vs-awq-vs-gguf.html">GPTQ vs AWQ vs GGUF</a>, and <a href="{{root}}learn/quantize-a-model.html">how to quantize a model</a>.</p>
+
+<aside class="warn"><p>Errors compound. Requantizing an already-quantized file, or stacking a 4-bit KV cache on 3-bit weights, can break a model. Start from the 16-bit checkpoint and change one thing at a time.</p></aside>
+
+<h3>Decision checklist</h3>
+<ol>
+<li><strong>Budget memory first.</strong> Weights + KV cache at your target context + about 10–20% headroom must fit in fast memory.</li>
+<li><strong>Pick the highest precision that fits.</strong> 8-bit or FP8 if it fits, a good 4-bit (Q4_K_M, AWQ, GPTQ, NF4) if not, and 3-bit or below only when a larger low-bit model beats a smaller high-bit one on your tasks.</li>
+<li><strong>Match the runtime.</strong> Use GGUF for llama.cpp and its derivatives, AWQ, GPTQ or FP8 for vLLM-style servers, and MLX on Macs if you use that stack.</li>
+<li><strong>Prefer calibrated methods below 5 bits.</strong> GPTQ, AWQ or an imatrix usually beat plain rounding.</li>
+<li><strong>Measure.</strong> Check KLD or perplexity against the 16-bit model, then run your own evaluation prompts.</li>
+<li><strong>Revisit the KV cache.</strong> At long contexts it can rival the weights.</li>
+</ol>
+
+<div class="takeaways"><h2 id="takeaways">Key takeaways</h2><ul>
+<li>Decoding is limited by memory bandwidth, so fewer bits per weight means less memory and often faster tokens.</li>
+<li>Weight memory ≈ parameters × bits ÷ 8. An 8B model is 16 GB at FP16 and about 4.9 GB at Q4_K_M.</li>
+<li>Weight-only 4-bit suits single-user inference. W8A8, FP8 and FP4 suit compute-bound serving on newer GPUs.</li>
+<li>GPTQ, AWQ, NF4, GGUF k/i-quants, SmoothQuant, FP8 and MXFP4/NVFP4 each solve a different part of the outlier and hardware problem.</li>
+<li>Judge quality with KL divergence and real tasks, not bit width.</li>
+</ul></div>
+
+<section class="faq"><h2 id="faq">Frequently asked questions</h2>
+<details><summary>Does 4-bit quantization make a model noticeably worse?</summary><p>A well-made 4-bit model with calibration or a good k-quant mix is usually close to the original on everyday tasks. Losses show up first in long reasoning chains, code and small models. Measure KLD against the 16-bit model and test your own workload.</p></details>
+<details><summary>Is a bigger model at 4-bit better than a smaller one at 8-bit?</summary><p>Often, at the same memory budget, but not always. Compare both on your tasks. Below about 3 bits per weight, quality tends to fall quickly.</p></details>
+<details><summary>Which is better, GPTQ or AWQ?</summary><p>Both are calibrated 4-bit weight-only methods with mature GPU kernels. Results depend on the model and the kernel. See the <a href="{{root}}learn/gptq-vs-awq-vs-gguf.html">comparison</a>.</p></details>
+<details><summary>How much memory does the KV cache add?</summary><p>For Llama 3.1 8B in FP16 it is 128 KiB per token, or 1 GiB at 8,192 tokens. Multiply by the number of concurrent sequences when serving.</p></details>
+</section>
+
+<section class="sources"><h2 id="sources">Sources and further reading</h2><ol>
+<li><a href="https://arxiv.org/abs/2210.17323" rel="noopener" target="_blank">Frantar et al., GPTQ (arXiv 2210.17323)</a> — second-order one-shot weight quantization.</li>
+<li><a href="https://arxiv.org/abs/2306.00978" rel="noopener" target="_blank">Lin et al., AWQ (arXiv 2306.00978)</a> — activation-aware scaling and the memory-bound decoding analysis.</li>
+<li><a href="https://arxiv.org/abs/2208.07339" rel="noopener" target="_blank">Dettmers et al., LLM.int8() (arXiv 2208.07339)</a> — vector-wise INT8 with outlier decomposition.</li>
+<li><a href="https://arxiv.org/abs/2305.14314" rel="noopener" target="_blank">Dettmers et al., QLoRA (arXiv 2305.14314)</a> — NF4 and double quantization.</li>
+<li><a href="https://arxiv.org/abs/2211.10438" rel="noopener" target="_blank">Xiao et al., SmoothQuant (arXiv 2211.10438)</a> — W8A8 by migrating outliers into the weights.</li>
+<li><a href="https://arxiv.org/abs/2209.05433" rel="noopener" target="_blank">Micikevicius et al., FP8 Formats for Deep Learning (arXiv 2209.05433)</a> — the E4M3 and E5M2 encodings.</li>
+<li><a href="https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf" rel="noopener" target="_blank">OCP Microscaling Formats (MX) v1.0 specification</a> — MXFP4 and related block formats.</li>
+<li><a href="https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference" rel="noopener" target="_blank">NVIDIA Technical Blog: Introducing NVFP4</a> — NVFP4 structure and comparison with MXFP4.</li>
+<li><a href="https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md" rel="noopener" target="_blank">llama.cpp quantize README</a> — GGUF types, bits per weight, and Llama 3.1 sizes.</li>
+<li><a href="https://github.com/ggml-org/llama.cpp/blob/master/tools/perplexity/README.md" rel="noopener" target="_blank">llama.cpp perplexity README</a> — the perplexity and KL divergence method and scoreboards.</li>
+</ol></section>

@@ -53,7 +53,7 @@ Build these pages (static HTML, relative links, no server):
 /learn/                    Guide index with track filters and search
 /learn/<13 guides>         See Phase 6
 /glossary                  80+ terms, A–Z jump links
-/formats                   Formats atlas: 30 formats, filter/sort, sources
+/formats                   Formats atlas: 32 formats, filter/sort, sources
 /videos                    24 curated YouTube explainers with click-to-load facades and track filters
 /resources                 Papers, libraries, courses, DSP/physics references
 /cheat-sheet               Printable formulas (also the email lead magnet)

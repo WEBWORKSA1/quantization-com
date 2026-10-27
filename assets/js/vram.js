@@ -144,7 +144,7 @@
     var bytesPerTok = P * bpw / 8 + kvPerTok * ctx * batch * 0.5; // weights + average KV read
     var tps = dev[2] * 1e9 * gpus / bytesPerTok;
     $('#oTps').textContent = total <= cap ? '≈ ' + (tps >= 100 ? tps.toFixed(0) : tps.toFixed(1)) + ' tokens/s ceiling' : '—';
-    $('#oCapNote').textContent = dev[3] === 'mac' ? 'Assumes about ' + (dev[1] <= 36 ? 'two-thirds' : 'three-quarters') + ' of unified memory is available to the GPU by default (' + fmtGB(usable(dev)) + ' GB).' : (gpus > 1 ? 'Assumes the model is split evenly across ' + gpus + ' GPUs (tensor or pipeline parallel).' : '');
+    $('#oCapNote').textContent = dev[3] === 'mac' ? 'Assumes about ' + (dev[1] <= 36 ? 'two-thirds' : 'three-quarters') + ' of unified memory (' + fmtGB(usable(dev)) + ' GB) is usable by the GPU, a common rule of thumb; your runtime’s startup log shows the real limit.' : (gpus > 1 ? 'Assumes the model is split evenly across ' + gpus + ' GPUs (tensor or pipeline parallel).' : '');
 
     // fit list
     $('#fitList').innerHTML = DEVICES.map(function (d) {

@@ -1,0 +1,140 @@
+---
+title: Hardware for Local LLMs: VRAM and Bandwidth | Quantization.com
+description: Choose hardware for quantized local LLMs: what fits in 8 to 80 GB at Q4, Q5 and Q8, why memory bandwidth sets tokens per second, and when offloading works.
+h1: Choosing hardware for local LLMs: memory first, bandwidth second
+track: ai
+read: 10
+summary: What fits in 8–80 GB at Q4, Q5 and Q8, why memory bandwidth caps tokens per second, and how GPUs, Apple Silicon and CPUs compare.
+---
+<p class="lede">Two numbers decide how well a machine runs a local language model. Fast memory capacity decides whether a model fits, and memory bandwidth sets the ceiling on generation speed. Compute matters less than most people expect for single-user chat. Quantization helps on both fronts, because it shrinks the weights you have to store and the bytes you have to read for every token.</p>
+
+<h2 id="memory-is-the-gate">Memory is the gate</h2>
+<p>Inference runs at full speed only when everything sits in the fastest memory the processor can reach: VRAM on a discrete GPU, or the unified pool on Apple Silicon. Three things compete for it:</p>
+<ul>
+<li><strong>Weights:</strong> the quantized parameters, which are by far the largest item for short-context use.</li>
+<li><strong>KV cache:</strong> keys and values for every token in context. This grows with context length and with the number of parallel requests. See <a href="{{root}}learn/kv-cache-quantization.html">KV cache quantization</a> for the formula.</li>
+<li><strong>Overhead:</strong> compute buffers, runtime allocations and, on a desktop, the display and other apps.</li>
+</ul>
+<p>If the weights do not fit, the runtime either fails to load or spills layers into much slower system RAM. So start with arithmetic.</p>
+
+<h2 id="the-sizing-method">The sizing method: params × bits ÷ 8, plus overhead</h2>
+<div class="formula">weight GB ≈ parameters (billions) × bits per weight ÷ 8</div>
+<p class="formula-note">Use the effective bits per weight, including scales, rather than the nominal label. llama.cpp's quantize documentation reports Llama 3.1 8B at 4.89 bits per weight for Q4_K_M, 5.70 for Q5_K_M and 8.50 for Q8_0, because block scales and mixed tensor types add to the nominal width.</p>
+<p>A quick check: llama.cpp lists the F16 file at 14.96 GiB (16.06 GB), which implies about 8.03 billion parameters. 8.03 × 4.89 ÷ 8 ≈ 4.91 GB, and the listed Q4_K_M file is 4.58 GiB (4.92 GB). Then add the KV cache for your context and a reserve for buffers. Keeping roughly 20% free is a reasonable starting assumption at 8K–16K context.</p>
+
+<div class="table-wrap"><table>
+<caption>Estimated weight size (GB) by model size and quant type, computed as params × bpw ÷ 8</caption>
+<thead><tr><th>Parameters</th><th>Q4_K_M (4.89 bpw)</th><th>Q5_K_M (5.70 bpw)</th><th>Q8_0 (8.50 bpw)</th><th>FP16 (16 bpw)</th></tr></thead>
+<tbody>
+<tr><td>8B</td><td>4.9</td><td>5.7</td><td>8.5</td><td>16.0</td></tr>
+<tr><td>14B</td><td>8.6</td><td>10.0</td><td>14.9</td><td>28.0</td></tr>
+<tr><td>24B</td><td>14.7</td><td>17.1</td><td>25.5</td><td>48.0</td></tr>
+<tr><td>32B</td><td>19.6</td><td>22.8</td><td>34.0</td><td>64.0</td></tr>
+<tr><td>70B</td><td>42.8</td><td>49.9</td><td>74.4</td><td>140.0</td></tr>
+</tbody>
+</table></div>
+
+<div data-cta="lead"></div>
+
+<h2 id="vram-tiers">What fits at each VRAM tier</h2>
+<p>Inverting the formula: maximum parameters ≈ (0.8 × capacity) × 8 ÷ bits per weight, keeping about 20% free for cache and buffers. These are planning estimates, not guarantees.</p>
+<div class="table-wrap"><table>
+<caption>Estimated largest dense model that fits, in billions of parameters (80% of memory for weights)</caption>
+<thead><tr><th>Memory</th><th>Q4_K_M</th><th>Q5_K_M</th><th>Q8_0</th><th>Typical fit</th></tr></thead>
+<tbody>
+<tr><td>8 GB</td><td>≈ 10</td><td>≈ 9</td><td>≈ 6</td><td>7–8B at Q4/Q5, short context</td></tr>
+<tr><td>12 GB</td><td>≈ 15</td><td>≈ 13</td><td>≈ 9</td><td>12–14B at Q4, 8B at Q8</td></tr>
+<tr><td>16 GB</td><td>≈ 21</td><td>≈ 18</td><td>≈ 12</td><td>14B at Q5/Q6, about 20B at Q4</td></tr>
+<tr><td>24 GB</td><td>≈ 31</td><td>≈ 27</td><td>≈ 18</td><td>24–27B at Q5, 32B at Q4 with modest context</td></tr>
+<tr><td>32 GB</td><td>≈ 42</td><td>≈ 36</td><td>≈ 24</td><td>32B at Q5, 24B at Q8</td></tr>
+<tr><td>48 GB</td><td>≈ 63</td><td>≈ 54</td><td>≈ 36</td><td>32B at Q8, 70B only at ≈ 4.4 bpw or less</td></tr>
+<tr><td>80 GB</td><td>≈ 105</td><td>≈ 90</td><td>≈ 60</td><td>70B at Q5–Q6, moderate context</td></tr>
+</tbody>
+</table></div>
+<aside class="note"><p>A 70B model at Q4_K_M needs about 42.8 GB for weights alone, which leaves almost nothing for cache on a 48 GB card. That is why people pair 48 GB with lower-bit types such as IQ3 or Q3_K, or split a 70B model across two GPUs. The <a href="{{root}}tools/vram-calculator.html">VRAM calculator</a> runs this arithmetic for any model, quant type and context.</p></aside>
+<div data-cta="tool" data-tool="vram-calculator"></div>
+<p>Mixture-of-experts (MoE) models break the simple rule. Memory must hold all experts, so size by <em>total</em> parameters. Each token reads only the <em>active</em> experts, though, so speed follows active parameters.</p>
+
+<h2 id="bandwidth-sets-speed">Memory bandwidth sets tokens per second</h2>
+<p>Each token in single-user decoding reads essentially every weight once, plus the KV cache. The arithmetic per byte is light, so the processor mostly waits on memory. That gives an upper bound:</p>
+<div class="formula">max tokens/s ≈ memory bandwidth (GB/s) ÷ bytes read per token (GB)</div>
+<p class="formula-note">Bytes read per token ≈ weight size (active weights for MoE) + KV cache in use. Treat the result as a ceiling: real decode speed lands below it. Prompt processing (prefill) is compute-bound and follows different rules.</p>
+<div class="example">
+<h3>Worked example: ceilings for an 8B model at Q4_K_M (4.9 GB)</h3>
+<ul>
+<li>448 GB/s (RTX 5060 Ti): 448 ÷ 4.9 ≈ 91 tokens/s maximum</li>
+<li>960 GB/s (RTX 5080): ≈ 196 tokens/s maximum</li>
+<li>1,792 GB/s (RTX 5090): ≈ 366 tokens/s maximum</li>
+<li>614 GB/s (M5 Max, 40-core GPU): ≈ 125 tokens/s maximum</li>
+<li>89.6 GB/s (dual-channel DDR5-5600, theoretical: 5,600 MT/s × 8 bytes × 2 channels): ≈ 18 tokens/s maximum</li>
+</ul>
+<p>The same arithmetic for a 70B Q4_K_M model (42.8 GB) gives about 14 tokens/s maximum at 614 GB/s and about 28 tokens/s at 1.2 TB/s (M5 Ultra). These are computed ceilings, not measured benchmarks.</p>
+</div>
+<p>This is why quantization speeds up decoding. Going from Q8_0 to Q4_K_M cuts bytes per token by about 42%, which raises the ceiling by about 74% if the dequantization kernels keep up. In batched serving, one weight read serves many sequences, so throughput grows with batch size until compute or KV cache becomes the limit.</p>
+
+<h2 id="gpus-macs-and-cpus">NVIDIA GPUs, Apple Silicon and CPU-only machines</h2>
+<h3>NVIDIA consumer and workstation cards</h3>
+<p>Consumer GeForce cards pair high bandwidth with limited capacity. NVIDIA lists 12 GB at 672 GB/s (RTX 5070), 16 GB at 896–960 GB/s (RTX 5070 Ti, RTX 5080) and 32 GB at 1,792 GB/s (RTX 5090). The RTX 5060 Ti has 8 or 16 GB at 448 GB/s, and the older RTX 3090 and RTX 4090 have 24 GB. Workstation cards add capacity: the RTX PRO 6000 Blackwell lists 96 GB of GDDR7 with ECC at 1,792 GB/s.</p>
+<h3>NVIDIA data-center GPUs</h3>
+<p>Data-center parts use high-bandwidth HBM. NVIDIA lists 80 GB at 2,039 GB/s for A100 80GB SXM, 80 GB at 3.35 TB/s for H100 SXM and 94 GB at 3.9 TB/s for H100 NVL. The L40S sits between the two classes with 48 GB of GDDR6 at 864 GB/s. They suit batched serving stacks such as vLLM.</p>
+<p>Format support also depends on GPU generation. vLLM's compatibility table lists FP8 W8A8 for Ada and Hopper but not Ampere, and its INT4 W4A16 path needs an Ampere-generation or newer GPU. bitsandbytes NF4 runs on Pascal and newer. Check before you choose a quantized checkpoint (see <a href="{{root}}learn/gptq-vs-awq-vs-gguf.html">GPTQ vs AWQ vs GGUF</a>).</p>
+<h3>Apple Silicon unified memory</h3>
+<p>On Apple Silicon, the CPU and GPU share one memory pool, so a machine with large RAM can hold models that no single consumer GPU could. Apple's specifications list 153 GB/s for M5, 307 GB/s for M5 Pro, 460 or 614 GB/s for M5 Max depending on GPU core count, and 1.2 TB/s for M5 Ultra. M5 Ultra configurations go up to 512 GB.</p>
+<p>Treat the headline RAM figure with caution, because by default the GPU does not get all of it. Metal publishes a <code>recommendedMaxWorkingSetSize</code> for each GPU, which Apple describes as an approximation of how much memory the GPU can allocate without hurting performance. llama.cpp's Metal backend reads that value as the device's usable total, prints it at startup and can warn when allocations exceed it. On Apple Silicon Macs this figure is typically below installed RAM, so read it from your own startup log rather than assuming a fixed fraction. For MLX, whose large-model handling needs macOS 15 or later, the mlx-lm documentation describes raising the system wired-memory limit with <code>sudo sysctl iogpu.wired_limit_mb=N</code>, where N is larger than the model but smaller than total memory. A higher limit lets the GPU wire memory that macOS and your applications would otherwise use, so leave a margin.</p>
+<h3>CPU-only inference</h3>
+<p>llama.cpp runs well on CPUs with AVX2, AVX-512 or ARM NEON. Speed again follows memory bandwidth: a dual-channel DDR5 desktop tops out near 90 GB/s in theory, while multi-channel server platforms reach several times that. CPU-only suits small models, MoE models with few active parameters and latency-tolerant batch jobs. Long prompts are slow, because prefill needs compute.</p>
+
+<h2 id="multi-gpu-and-offloading">Multi-GPU splits and offloading</h2>
+<h3>Splitting across GPUs</h3>
+<p>llama.cpp's default <code>--split-mode layer</code> gives each GPU a contiguous slice of layers along with that slice's KV cache. Capacity adds up, so two 24 GB cards hold what one 48 GB card would. Single-stream speed does not add up, because each token passes through the GPUs one after another. The experimental <code>--split-mode tensor</code> splits every layer across GPUs so they read their shares at the same time, which can raise single-stream speed. It needs a fast interconnect and does not support a quantized KV cache. <code>-ts 3,1</code> sets an uneven split for mismatched cards. In vLLM, <code>--tensor-parallel-size</code> sets the number of GPUs.</p>
+<pre><code>llama-server -m model-Q4_K_M.gguf -ngl all -ts 1,1 -c 16384</code></pre>
+<h3>Offloading to system RAM</h3>
+<p>When a model does not fit, llama.cpp can keep some layers on the CPU (<code>-ngl</code> sets how many go to the GPU), and its default <code>--fit</code> logic tries to choose sensible values automatically. The cost follows from the bandwidth rule. Each token's time is the sum of the GPU part and the CPU part, and the slow part dominates.</p>
+<div class="example">
+<h3>Worked example: 70B Q4_K_M on one 32 GB GPU</h3>
+<p>Put 28 GB of weights on a 1,792 GB/s GPU and the remaining 14.8 GB in dual-channel DDR5 at 89.6 GB/s:</p>
+<ul>
+<li>GPU time per token: 28 ÷ 1,792 ≈ 0.016 s</li>
+<li>CPU time per token: 14.8 ÷ 89.6 ≈ 0.165 s</li>
+<li>Ceiling: 1 ÷ 0.181 ≈ 5.5 tokens/s, even though two-thirds of the model is on the fast GPU</li>
+</ul>
+</div>
+<p>MoE models offload more gracefully. llama.cpp's <code>--cpu-moe</code> and <code>--n-cpu-moe N</code> keep expert weights in system RAM and attention plus shared weights on the GPU. Each token touches only a few experts, so less data crosses the slow path.</p>
+
+<h3>A practical selection checklist</h3>
+<ol>
+<li>Pick the largest model you need and the quant you will accept. Compute weight size with params × bpw ÷ 8.</li>
+<li>Add the KV cache for your real context length and number of concurrent users.</li>
+<li>Choose memory capacity with about 20% headroom, or more for long contexts.</li>
+<li>Divide bandwidth by bytes per token to check that the speed ceiling meets your needs, and expect real results below it.</li>
+<li>Confirm that your runtime and quant format support the hardware (CUDA, ROCm, Metal or CPU).</li>
+</ol>
+
+<div class="takeaways"><h2 id="takeaways">Key takeaways</h2><ul>
+<li>Weight size ≈ parameters × effective bits per weight ÷ 8. Q4_K_M is about 4.9 bpw and Q8_0 about 8.5 bpw.</li>
+<li>Reserve about 20% of memory for KV cache and buffers, and more for long contexts or several users.</li>
+<li>Decode speed ceiling ≈ bandwidth ÷ bytes read per token, so quantization raises speed as well as fit.</li>
+<li>Apple Silicon offers large unified pools, but macOS caps GPU-usable memory below installed RAM by default.</li>
+<li>Splitting across GPUs adds capacity. Offloading to system RAM works, but the slow memory dominates per-token time.</li>
+</ul></div>
+
+<section class="faq"><h2 id="faq">Frequently asked questions</h2>
+<details><summary>How much VRAM do I need to run a 70B model?</summary><p>At Q4_K_M, the weights alone are about 43 GB, so plan for at least 48 GB plus cache. 64 GB or more, or two 32 GB GPUs, leaves room for useful context. Lower-bit types such as IQ3 fit in less memory, at some cost in quality.</p></details>
+<details><summary>Is a faster GPU always better for local LLMs?</summary><p>For single-user generation, memory bandwidth and capacity matter more than compute. Two cards with similar memory bandwidth decode at similar speeds even if one has far more compute. Compute matters more for prompt processing and batched serving.</p></details>
+<details><summary>Can I run models without a GPU?</summary><p>Yes. llama.cpp and Ollama run on CPUs, at speeds set by RAM bandwidth. Small and MoE models suit this best.</p></details>
+<details><summary>Does Q8 run slower than Q4?</summary><p>Usually yes for decoding, because each token reads almost twice as many bytes. Q8_0 is close to lossless, while Q4_K_M has measurable but usually small quality loss.</p></details>
+<details><summary>Do two GPUs double my tokens per second?</summary><p>Not with the default layer split, which adds capacity but processes layers one after another. Tensor-parallel modes can raise single-stream speed, but they depend on fast GPU-to-GPU links.</p></details>
+</section>
+
+<section class="sources"><h2 id="sources">Sources and further reading</h2><ol>
+<li><a href="https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md" rel="noopener" target="_blank">llama.cpp quantize README</a>: bits per weight and file sizes for Llama 3.1 8B quant types.</li>
+<li><a href="https://github.com/ggml-org/llama.cpp/blob/master/docs/multi-gpu.md" rel="noopener" target="_blank">llama.cpp: Using multiple GPUs</a>: split modes, tensor split and their limitations.</li>
+<li><a href="https://www.nvidia.com/en-us/geforce/graphics-cards/compare/" rel="noopener" target="_blank">NVIDIA GeForce graphics card comparison</a>: memory size and bandwidth for RTX 50 series cards.</li>
+<li><a href="https://www.nvidia.com/en-us/data-center/h100/" rel="noopener" target="_blank">NVIDIA H100</a>: memory capacity and bandwidth for SXM and NVL.</li>
+<li><a href="https://www.nvidia.com/en-us/data-center/a100/" rel="noopener" target="_blank">NVIDIA A100</a>: 80 GB HBM2e bandwidth figures.</li>
+<li><a href="https://www.apple.com/mac-studio/specs/" rel="noopener" target="_blank">Apple Mac Studio technical specifications</a>: unified memory and bandwidth for M5 Max and M5 Ultra.</li>
+<li><a href="https://www.apple.com/macbook-pro/specs/" rel="noopener" target="_blank">Apple MacBook Pro technical specifications</a>: memory bandwidth for M5, M5 Pro and M5 Max.</li>
+<li><a href="https://developer.apple.com/documentation/metal/mtldevice/recommendedmaxworkingsetsize" rel="noopener" target="_blank">Apple Metal: recommendedMaxWorkingSetSize</a>: the GPU working-set guidance that runtimes read.</li>
+<li><a href="https://github.com/ml-explore/mlx-lm" rel="noopener" target="_blank">mlx-lm README</a>: large models on macOS and the wired memory limit setting.</li>
+<li><a href="https://docs.vllm.ai/en/latest/features/quantization/" rel="noopener" target="_blank">vLLM quantization overview</a>: hardware compatibility of quantization formats.</li>
+</ol></section>

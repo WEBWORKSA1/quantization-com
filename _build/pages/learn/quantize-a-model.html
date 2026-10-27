@@ -1,0 +1,173 @@
+---
+title: How to Quantize a Model Yourself: 4 Routes | Quantization.com
+description: Step-by-step guide to quantizing an LLM yourself with llama.cpp GGUF, bitsandbytes 4-bit, or GPTQ/AWQ via llm-compressor, then running and evaluating it.
+h1: How to quantize a model yourself, step by step
+track: ai
+read: 10
+summary: Quantize an LLM with llama.cpp, bitsandbytes or llm-compressor, run it in llama.cpp, Ollama or vLLM, and check quality before you trust it.
+---
+<p class="lede">You can quantize most open-weight language models on your own hardware with free, open-source tools. The route depends on where the model will run. Use llama.cpp's GGUF tools for laptops, Macs and Ollama. Use bitsandbytes for quick 4-bit loading inside Python. Use llm-compressor, or GPTQModel, to produce GPTQ or AWQ checkpoints for vLLM. This guide walks through all three, shows how to run the result, and explains how to check that quality held up.</p>
+
+<h2 id="choose-a-route">Choose a route</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Route</th><th>Output</th><th>Calibration data</th><th>Best for</th></tr></thead>
+<tbody>
+<tr><td>llama.cpp</td><td>GGUF file (Q4_K_M, Q5_K_M, Q8_0, IQ types)</td><td>Optional (importance matrix)</td><td>Local apps, CPU, Apple Silicon, Ollama</td></tr>
+<tr><td>bitsandbytes</td><td>Quantized at load time (NF4/FP4, int8)</td><td>None</td><td>Python experiments, QLoRA fine-tuning</td></tr>
+<tr><td>llm-compressor / GPTQModel</td><td>Hugging Face checkpoint (GPTQ, AWQ, FP8 and more)</td><td>Yes, typically a few hundred samples</td><td>GPU serving with vLLM</td></tr>
+</tbody>
+</table></div>
+<p>All three routes start from the original high-precision weights, usually BF16 safetensors from Hugging Face. Gated models need an accepted licence and a logged-in token (<code>hf auth login</code>). Make sure you have enough disk space and RAM. llama.cpp's quantize documentation notes that its tools currently load the whole model into memory. If you are unsure which format you need, read <a href="{{root}}learn/gptq-vs-awq-vs-gguf.html">GPTQ vs AWQ vs GGUF</a> first.</p>
+
+<h2 id="route-a-llama-cpp-gguf">Route A: GGUF with llama.cpp</h2>
+<h3>1. Build the tools and install the converter's requirements</h3>
+<pre><code>git clone https://github.com/ggml-org/llama.cpp
+cd llama.cpp
+cmake -B build                  # add -DGGML_CUDA=ON for NVIDIA; Metal is on by default on macOS
+cmake --build build --config Release
+python3 -m pip install -r requirements.txt</code></pre>
+<p>The binaries end up in <code>build/bin/</code>, including <code>llama-quantize</code>, <code>llama-imatrix</code>, <code>llama-perplexity</code>, <code>llama-cli</code> and <code>llama-server</code>.</p>
+<h3>2. Convert to a 16-bit GGUF</h3>
+<pre><code>hf download Qwen/Qwen3-8B --local-dir ./Qwen3-8B
+python convert_hf_to_gguf.py ./Qwen3-8B --outtype bf16 --outfile qwen3-8b-bf16.gguf</code></pre>
+<p>Common <code>--outtype</code> values are f32, f16, bf16, q8_0 and auto, which picks the highest-fidelity 16-bit type. Convert at full 16-bit precision so that every later quant is made from the original values. The converter can also read a Hub repo directly with <code>--remote</code>, which its help text labels experimental.</p>
+<h3>3. (Optional) Compute an importance matrix</h3>
+<p>An importance matrix (imatrix) records which weights matter most on representative text. <code>llama-quantize</code> uses it to spend precision where it counts. This matters most for 4-bit and lower types. llama.cpp's perplexity scoreboard for Llama 3 8B shows Q4_K_M with an imatrix scoring lower perplexity and KL divergence than Q4_K_M without one.</p>
+<pre><code>./build/bin/llama-imatrix -m qwen3-8b-bf16.gguf -f calibration.txt -o imatrix.gguf -ngl 99</code></pre>
+<p>Use a plain-text file that resembles your real workload: prose, code or chat in the languages you use. <code>-ngl 99</code> offloads the computation to the GPU.</p>
+<h3>4. Quantize</h3>
+<pre><code>./build/bin/llama-quantize --imatrix imatrix.gguf qwen3-8b-bf16.gguf qwen3-8b-Q4_K_M.gguf Q4_K_M</code></pre>
+<p>Leave out <code>--imatrix</code> for a plain quantization. The type name sets the trade-off. Q8_0 is close to lossless, Q5_K_M and Q4_K_M are the common local defaults, and IQ types cover roughly 2–4.5 bits per weight (see <a href="{{root}}learn/gguf-quant-types.html">GGUF quant types</a>). Running <code>llama-quantize</code> with no arguments prints its usage, including every type and, for many, a reference size and perplexity change. Avoid <code>--allow-requantize</code> from an already-quantized file, because the tool itself warns this can severely reduce quality.</p>
+<aside class="note"><p>For multimodal models, the converter's <code>--mmproj</code> flag writes the vision or audio projector as a separate GGUF. llama.cpp recommends keeping it at bf16 or q8_0, because it is small and sensitive to quantization.</p></aside>
+
+<div data-cta="lead"></div>
+
+<h2 id="route-b-bitsandbytes">Route B: 4-bit loading with bitsandbytes</h2>
+<p>bitsandbytes quantizes weights while Transformers loads them, with no calibration and no separate conversion step. It supports NVIDIA GPUs (NF4/FP4 from Pascal onward), Intel XPU and Gaudi, and CPU.</p>
+<pre><code>pip install --upgrade transformers accelerate bitsandbytes</code></pre>
+<pre><code>import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+
+model_id = "Qwen/Qwen3-8B"
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",              # NormalFloat4 from the QLoRA paper
+    bnb_4bit_compute_dtype=torch.bfloat16,  # dtype used for the matmuls
+    bnb_4bit_use_double_quant=True,         # also quantize the scales
+)
+model = AutoModelForCausalLM.from_pretrained(
+    model_id, quantization_config=bnb_config, device_map="auto", dtype="auto"
+)
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+print(f"{model.get_memory_footprint() / 1e9:.2f} GB")</code></pre>
+<p>Here is what each setting does:</p>
+<ul>
+<li><code>bnb_4bit_quant_type="nf4"</code> uses a 4-bit grid shaped for normally distributed weights. Transformers recommends it for training 4-bit base models.</li>
+<li><code>bnb_4bit_compute_dtype</code> sets the type that weights are dequantized to for each matrix multiply. The default is float32, and bfloat16 is faster.</li>
+<li><code>bnb_4bit_use_double_quant</code> quantizes the per-block scales themselves, saving about 0.4 bits per parameter.</li>
+</ul>
+<p>With a recent bitsandbytes, you can store the result with <code>model.save_pretrained("qwen3-8b-bnb-nf4")</code> or <code>push_to_hub</code>. vLLM can load bitsandbytes checkpoints through its separate <code>vllm-bnb-plugin</code>. In practice, this route is mainly for experiments and QLoRA. GPTQ and AWQ checkpoints are the more common choice for production GPU serving.</p>
+
+<h2 id="route-c-gptq-awq">Route C: GPTQ or AWQ with llm-compressor</h2>
+<p><strong>Which tool is current?</strong> AutoAWQ's README declares the project officially deprecated, and its GitHub repository was archived in May 2025. vLLM's AutoAWQ page points to llm-compressor's AWQ examples instead, and vLLM's quantization overview suggests llm-compressor as the starting point. On the GPTQ side, Transformers states that AutoGPTQ is no longer supported and directs users to GPT-QModel (<code>gptqmodel</code>), which is actively maintained and also supports AWQ. Use llm-compressor if your target is vLLM, or GPTQModel if you want its API or one of its other backends.</p>
+<p>The vLLM docs advise installing llm-compressor and vLLM in separate Python environments. llm-compressor's INT4 documentation lists Ampere, Ada Lovelace and Hopper NVIDIA GPUs for running INT4 models.</p>
+<pre><code>pip install llmcompressor</code></pre>
+<h3>GPTQ (W4A16, group size 128)</h3>
+<pre><code>from transformers import AutoModelForCausalLM, AutoTokenizer
+from llmcompressor import oneshot
+from llmcompressor.modifiers.gptq import GPTQModifier
+
+model_id = "meta-llama/Meta-Llama-3-8B-Instruct"
+model = AutoModelForCausalLM.from_pretrained(model_id, dtype="auto")
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+
+recipe = GPTQModifier(targets="Linear", scheme="W4A16", ignore=["lm_head"])
+oneshot(
+    model=model,
+    dataset="perfectblend",       # built-in calibration set; your own data works too
+    splits="train[:512]",
+    recipe=recipe,
+    max_seq_length=2048,
+    num_calibration_samples=512,
+)
+
+save_dir = "Meta-Llama-3-8B-Instruct-W4A16-G128"
+model.save_pretrained(save_dir, save_compressed=True)
+tokenizer.save_pretrained(save_dir)</code></pre>
+<h3>AWQ (4-bit asymmetric)</h3>
+<p>AWQ in llm-compressor is a two-part recipe. <code>AWQModifier</code> computes activation-aware scales, then <code>QuantizationModifier</code> applies the 4-bit weights:</p>
+<pre><code>from llmcompressor.modifiers.quantization import QuantizationModifier
+from llmcompressor.modifiers.transform.awq import AWQModifier
+
+recipe = [
+    AWQModifier(),
+    QuantizationModifier(ignore=["lm_head"], scheme="W4A16_ASYM", targets=["Linear"]),
+]</code></pre>
+<p>Pass this recipe to the same <code>oneshot</code> call. llm-compressor's INT4 guide suggests starting at 512 samples of 2,048 tokens (its AWQ example uses 256 samples of 512 tokens) and formatting calibration text with the model's own chat template. If accuracy drops, increase the sample count or use data closer to your use case. The documented examples leave <code>lm_head</code> unquantized.</p>
+
+<h2 id="run-the-result">Run the quantized model</h2>
+<h3>llama.cpp: llama-cli and llama-server</h3>
+<pre><code>./build/bin/llama-cli -m qwen3-8b-Q4_K_M.gguf -ngl 99 -c 8192
+./build/bin/llama-server -m qwen3-8b-Q4_K_M.gguf -ngl 99 -c 8192 --port 8080</code></pre>
+<p><code>llama-cli</code> opens an interactive chat using the chat template stored in the GGUF. <code>llama-server</code> serves an OpenAI-compatible API, with <code>/v1/chat/completions</code> among its endpoints, plus a built-in web UI. <code>-ngl</code> sets how many layers go to the GPU. In current builds it defaults to <code>auto</code> and accepts <code>all</code>. <code>-c</code> sets the context length. The current server documentation lists 9931 as the default port, so this example sets <code>--port 8080</code> explicitly to match the evaluation command below.</p>
+<h3>Ollama: import the GGUF with a Modelfile</h3>
+<p>Ollama does not quantize GGUF files during import, so point it at the file you just made. Create a file named <code>Modelfile</code>:</p>
+<pre><code>FROM ./qwen3-8b-Q4_K_M.gguf
+PARAMETER num_ctx 8192</code></pre>
+<pre><code>ollama create qwen3-8b-q4km -f Modelfile
+ollama run qwen3-8b-q4km</code></pre>
+<p>For split GGUF files, use a wildcard such as <code>FROM ./model-*.gguf</code>. Run <code>ollama ps</code> to confirm whether the model loaded fully on the GPU or partly on the CPU. If replies look malformed, add a <code>TEMPLATE</code> block that matches the model's chat format.</p>
+<h3>vLLM: serve the compressed checkpoint</h3>
+<pre><code>pip install vllm
+vllm serve ./Meta-Llama-3-8B-Instruct-W4A16-G128 --max-model-len 8192</code></pre>
+<p>vLLM reads the quantization method from the checkpoint's config, so llm-compressor and GPTQModel outputs need no extra flag. The server listens on port 8000 by default. vLLM can also load GGUF files, but its documentation calls that support highly experimental and recommends passing the original model's tokenizer with <code>--tokenizer</code>.</p>
+
+<h2 id="evaluate-your-quant">Evaluate your quant</h2>
+<p>A quantized model that loads and chats is not necessarily a good one. Run three checks and compare each against the unquantized model.</p>
+<h3>1. Perplexity and KL divergence (GGUF)</h3>
+<pre><code>./scripts/get-wikitext-2.sh
+./build/bin/llama-perplexity -m qwen3-8b-bf16.gguf   -f wikitext-2-raw/wiki.test.raw -ngl 99
+./build/bin/llama-perplexity -m qwen3-8b-Q4_K_M.gguf -f wikitext-2-raw/wiki.test.raw -ngl 99</code></pre>
+<p>Lower perplexity is better. Only compare runs that use the same model, tokenizer, text and settings. A small increase over BF16 is normal for 4-bit quants. A large jump means something went wrong. For a sharper measure, save the BF16 logits once with <code>--kl-divergence-base base.kld</code>. Then run the quant with <code>--kl-divergence-base base.kld --kl-divergence</code> to get KL divergence and the percentage of tokens where both models make the same top prediction. The logits file is large: llama.cpp cites 37 GiB for Llama 3 on Wikitext-2. Use <code>--chunks</code> to limit the run.</p>
+<h3>2. A small task evaluation</h3>
+<p>EleutherAI's lm-evaluation-harness runs standard benchmarks against Transformers, vLLM or a running llama-server:</p>
+<pre><code>pip install "lm_eval[vllm,api]"
+lm_eval --model vllm \
+  --model_args pretrained=./Meta-Llama-3-8B-Instruct-W4A16-G128,add_bos_token=true \
+  --tasks gsm8k --num_fewshot 5 --limit 250 --batch_size auto
+
+lm_eval --model gguf --model_args base_url=http://127.0.0.1:8080 --tasks hellaswag --limit 500</code></pre>
+<p>Run the same command against the original model and compare the scores, taking the reported standard error into account. <code>--limit</code> keeps the run short. Small samples are noisy, so treat a difference within the error bars as no difference. Quantized models can be sensitive to the beginning-of-sequence token, which is why the llm-compressor docs pass <code>add_bos_token=true</code>.</p>
+<h3>3. Side-by-side prompts</h3>
+<p>Benchmarks miss failures that matter to you. Keep 20–30 prompts from your real workload: long instructions, code, structured output and non-English text if you use it. Run them through both models with greedy decoding (for example <code>--temp 0</code> in llama-cli, or <code>temperature=0</code> through the API) and read the outputs side by side. Watch for broken formatting, lost instructions, repetition loops and factual drift. Quantization damage often shows up first in long or precise tasks.</p>
+<div data-cta="tool" data-tool="quantization-playground"></div>
+<aside class="warn"><p>Check the chat template before blaming the quant. A wrong or missing template produces garbled answers that look like quantization damage. Compare both models using the same template and sampling settings.</p></aside>
+
+<div class="takeaways"><h2 id="takeaways">Key takeaways</h2><ul>
+<li>GGUF route: <code>convert_hf_to_gguf.py</code> to bf16, an optional <code>llama-imatrix</code> step, then <code>llama-quantize</code> with a type such as Q4_K_M.</li>
+<li>bitsandbytes route: a <code>BitsAndBytesConfig</code> with <code>load_in_4bit</code>, NF4, a bf16 compute dtype and double quantization. No calibration needed.</li>
+<li>For GPTQ and AWQ, use llm-compressor or GPTQModel. AutoAWQ is deprecated and archived, and AutoGPTQ is no longer supported in Transformers.</li>
+<li>Run GGUF files with llama-cli, llama-server or an Ollama Modelfile, and compressed checkpoints with <code>vllm serve</code>.</li>
+<li>Always evaluate against the original model: perplexity or KL divergence, a small task eval and side-by-side prompts.</li>
+</ul></div>
+
+<section class="faq"><h2 id="faq">Frequently asked questions</h2>
+<details><summary>Do I need a GPU to quantize a model?</summary><p>Not for GGUF. Conversion and <code>llama-quantize</code> run on the CPU, and a GPU only speeds up the imatrix step. GPTQ and AWQ calibration in llm-compressor is far more practical on a GPU, and bitsandbytes 4-bit loading needs a supported accelerator or its CPU backend.</p></details>
+<details><summary>Is an importance matrix worth the extra step?</summary><p>For 4-bit and lower GGUF types, usually yes. llama.cpp's own scoreboard shows lower perplexity and KL divergence with an imatrix at Q4_K_M. At Q8_0, the quantization error is already very small, so there is little left to recover.</p></details>
+<details><summary>Should I still use AutoAWQ?</summary><p>No. Its maintainer deprecated it and archived the repository. llm-compressor carries the AWQ algorithm forward, and GPTQModel also supports AWQ.</p></details>
+<details><summary>Can I quantize an already-quantized GGUF to a smaller type?</summary><p>Only with <code>--allow-requantize</code>, and llama.cpp warns this can severely reduce quality. Requantize from the BF16 or F16 GGUF instead.</p></details>
+<details><summary>How many calibration samples do GPTQ and AWQ need?</summary><p>llm-compressor's documentation suggests starting at 512 samples of 2,048 tokens and increasing the count if accuracy drops. Data that resembles your deployment matters more than raw volume.</p></details>
+</section>
+
+<section class="sources"><h2 id="sources">Sources and further reading</h2><ol>
+<li><a href="https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md" rel="noopener" target="_blank">llama.cpp quantize README</a>: conversion, llama-quantize options and quant types.</li>
+<li><a href="https://github.com/ggml-org/llama.cpp/blob/master/tools/imatrix/README.md" rel="noopener" target="_blank">llama.cpp imatrix README</a>: importance-matrix generation and usage.</li>
+<li><a href="https://github.com/ggml-org/llama.cpp/blob/master/tools/perplexity/README.md" rel="noopener" target="_blank">llama.cpp perplexity README</a>: perplexity, KL divergence and the Llama 3 8B quant scoreboard.</li>
+<li><a href="https://huggingface.co/docs/transformers/main/en/quantization/bitsandbytes" rel="noopener" target="_blank">Hugging Face Transformers: bitsandbytes</a>: BitsAndBytesConfig, NF4, compute dtype and nested quantization.</li>
+<li><a href="https://github.com/vllm-project/llm-compressor" rel="noopener" target="_blank">llm-compressor</a>: GPTQ, AWQ and FP8 recipes producing vLLM-ready checkpoints.</li>
+<li><a href="https://github.com/casper-hansen/AutoAWQ" rel="noopener" target="_blank">AutoAWQ repository</a>: the deprecation notice and archived status.</li>
+<li><a href="https://huggingface.co/docs/transformers/main/en/quantization/gptq" rel="noopener" target="_blank">Hugging Face Transformers: GPTQ</a>: the GPT-QModel integration and the AutoGPTQ deprecation.</li>
+<li><a href="https://docs.ollama.com/import" rel="noopener" target="_blank">Ollama: Importing a model</a>: importing a GGUF with a Modelfile and ollama create.</li>
+<li><a href="https://docs.vllm.ai/en/latest/features/quantization/" rel="noopener" target="_blank">vLLM quantization documentation</a>: supported formats, llm-compressor guidance and hardware support.</li>
+<li><a href="https://github.com/EleutherAI/lm-evaluation-harness" rel="noopener" target="_blank">EleutherAI lm-evaluation-harness</a>: task evaluation for Transformers, vLLM and llama-server.</li>
+</ol></section>
