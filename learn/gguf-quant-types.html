@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GGUF quant types explained: Q4_K_M to IQ1_S | Quantization.com</title>
+<meta name="description" content="What GGUF quant names like Q4_K_M, Q6_K and IQ2_XS mean, their bits per weight, how imatrix works, file-size math, and the llama.cpp commands to make them.">
+<link rel="canonical" href="https://quantization.com/learn/gguf-quant-types.html">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#121A2E">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Quantization.com">
+<meta property="og:title" content="GGUF quant types explained: legacy, k-quants and i-quants">
+<meta property="og:description" content="What GGUF quant names like Q4_K_M, Q6_K and IQ2_XS mean, their bits per weight, how imatrix works, file-size math, and the llama.cpp commands to make them.">
+<meta property="og:url" content="https://quantization.com/learn/gguf-quant-types.html">
+<meta property="og:image" content="https://quantization.com/assets/img/og.svg">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/img/icon.svg">
+<link rel="manifest" href="../site.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wdth,wght@75..100,400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/site.css">
+<script>try{var t=localStorage.getItem('qz-theme');if(t)document.documentElement.setAttribute('data-theme',t);if(localStorage.getItem('qz-consent')==='essential'){(window.adsbygoogle=window.adsbygoogle||[]).requestNonPersonalizedAds=1}}catch(e){}</script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6620975821265271" crossorigin="anonymous"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Quantization.com","url":"https://quantization.com/","logo":"https://quantization.com/assets/img/icon.svg"}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"GGUF quant types explained: legacy, k-quants and i-quants","description":"What GGUF quant names like Q4_K_M, Q6_K and IQ2_XS mean, their bits per weight, how imatrix works, file-size math, and the llama.cpp commands to make them.","datePublished":"2026-10-27","dateModified":"2026-10-27","wordCount":2126,"author":{"@type":"Organization","name":"Quantization.com editorial team","url":"https://quantization.com/about.html"},"publisher":{"@type":"Organization","name":"Quantization.com","logo":{"@type":"ImageObject","url":"https://quantization.com/assets/img/icon.svg"}},"mainEntityOfPage":"https://quantization.com/learn/gguf-quant-types.html","image":"https://quantization.com/assets/img/og.svg"}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://quantization.com/"},{"@type":"ListItem","position":2,"name":"Learn","item":"https://quantization.com/learn/"},{"@type":"ListItem","position":3,"name":"GGUF quant types explained: legacy, k-quants and i-quants","item":"https://quantization.com/learn/gguf-quant-types.html"}]}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What does the K in Q4_K_M mean?","acceptedAnswer":{"@type":"Answer","text":"It marks a k-quant, the family that uses 256-weight super-blocks with quantized sub-block scales. The M means the medium mix, where some sensitive tensors get a higher-bit type."}},{"@type":"Question","name":"Is Q4_K_M or Q5_K_M better?","acceptedAnswer":{"@type":"Answer","text":"Q5_K_M stays closer to the original model (lower KL divergence) but is about 16% larger. Choose Q5_K_M if it fits with room left for your context. Otherwise Q4_K_M."}},{"@type":"Question","name":"Do I need an imatrix?","acceptedAnswer":{"@type":"Answer","text":"For IQ1 and IQ2 types, the smallest IQ3 types, and Q2_K_S, yes: llama-quantize won't run without one. For other types it's optional but usually helps."}},{"@type":"Question","name":"Why is my Q4 file bigger than 4 bits × parameters?","acceptedAnswer":{"@type":"Answer","text":"Block scales, higher-bit mixes for sensitive tensors, a Q6_K output layer and unquantized norms raise the effective rate. Q4_K_M lands near 4.9 bpw."}},{"@type":"Question","name":"Can I convert GPTQ or AWQ files to GGUF?","acceptedAnswer":{"@type":"Answer","text":"The usual route is to start from the original 16-bit Hugging Face checkpoint and convert that. Requantizing already-quantized weights adds a second round of error."}}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="ownerbar" role="note"><a href="https://web.works/contact" target="_blank" rel="noopener">Contact, if you are interested in this website/domain name/Sponsorship/Advertisement/Partnership</a></div>
+<header class="site"><div class="wrap nav">
+<a class="logo" href="../index.html" aria-label="Quantization.com home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x=".5" y=".5" width="31" height="31" rx="8" fill="#121A2E" stroke="var(--rule-2)"/><path d="M5 20c3-11 7-11 11 0s7 11 11 0" fill="none" stroke="var(--signal)" stroke-width="2" opacity=".9"/><path d="M5 22h4v-6h4v-5h6v5h4v6h4" fill="none" stroke="var(--step)" stroke-width="2.4" stroke-linejoin="round"/></svg><span>Quantization<span class="tld">.com</span></span></a>
+<ul class="menu" id="menu"><li><a href="../index.html">Home</a></li><li><a href="../tools/index.html">Tools</a></li><li><a href="../learn/index.html" class="active" aria-current="page">Learn</a></li><li><a href="../formats.html">Formats</a></li><li><a href="../videos.html">Videos</a></li><li><a href="../resources.html">Resources</a></li><li><a href="../challenge.html">Challenge</a></li><li><a href="../support.html">Support</a></li></ul>
+<div class="nav-cta"><a class="btn btn-primary btn-sm btn-head" href="../get-optimized.html">Free optimization plan</a>
+<button class="icon-btn" id="themeBtn" type="button" aria-label="Switch light or dark theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 4v16" /><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg></button>
+<button class="icon-btn burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button></div>
+</div></header>
+<main id="main">
+<nav class="crumbs wrap" aria-label="Breadcrumb"><a href="../index.html">Home</a> <span aria-hidden="true">/</span> <a href="../learn/index.html">Learn</a> <span aria-hidden="true">/</span> <span aria-current="page">GGUF quant types explained: legacy, k-quants and i-quants</span></nav>
+<article class="wrap">
+<header class="art-head">
+<span class="track track-ai">AI models</span>
+<h1>GGUF quant types explained: legacy, k-quants and i-quants</h1>
+<div class="art-meta"><span>By the Quantization.com editorial team</span><span>Updated <time datetime="2026-10-27">October 27, 2026</time></span><span>9 min read</span></div>
+</header>
+<div class="art-layout">
+<div class="prose">
+<p class="lede">GGUF is llama.cpp's model file format, and names like Q4_K_M, Q6_K or IQ2_XS describe how its weights were quantized: the number is roughly the bits per weight, "K" marks a k-quant built on 256-weight super-blocks, "IQ" marks a codebook-based i-quant, and _S/_M/_L says how many tensors got extra bits. Q4_K_M is the sensible default for most people. This page explains every type, what it costs in memory, and how to build one yourself.</p>
+
+<h2 id="what-is-gguf">What GGUF is</h2>
+<p>GGUF is a binary format for running models with GGML, the tensor library behind llama.cpp, and with other GGML-based programs. It replaced the earlier GGML, GGMF and GGJT formats. The main change was swapping an untyped list of hyperparameters for typed key-value metadata, so new fields can be added without breaking older files. According to the specification, the format aims for:</p>
+<ul>
+<li><strong>Single-file deployment.</strong> Architecture, tokenizer, chat template and tensors all live in one file.</li>
+<li><strong>Memory mapping (mmap).</strong> Tensor data is aligned so it can be loaded quickly.</li>
+<li><strong>Extensibility.</strong> New metadata keys don't break existing readers.</li>
+</ul>
+<p>A file starts with the magic bytes <code>GGUF</code> and a version number, followed by the metadata, a tensor index (name, shape, type, offset), and the aligned tensor data. Each tensor carries its own type, so a single file usually mixes several. Norm weights stay in F32, the output layer is often Q6_K, and most other weights use the headline type. The spec's naming convention includes the encoding as a filename component, which is why most files end in something like <code>-Q4_K_M.gguf</code>.</p>
+
+<h2 id="legacy-quants">Legacy quants: Q4_0, Q4_1, Q5_0, Q5_1, Q8_0</h2>
+<p>The original types split each tensor into blocks of 32 weights and round every weight to the nearest level within its block. "_0" types store one FP16 scale per block (w = q × scale). "_1" types also store a minimum (w = q × scale + min), which fits lopsided ranges better. The bits per weight follow directly from the block layout:</p>
+<div class="table-wrap"><table>
+<caption>Legacy GGUF types (32-weight blocks)</caption>
+<thead><tr><th>Type</th><th>Block contents</th><th>Bits per weight</th></tr></thead>
+<tbody>
+<tr><td>Q4_0</td><td>32 × 4-bit + FP16 scale</td><td>(128 + 16) / 32 = 4.5</td></tr>
+<tr><td>Q4_1</td><td>32 × 4-bit + FP16 scale + FP16 min</td><td>(128 + 32) / 32 = 5.0</td></tr>
+<tr><td>Q5_0</td><td>32 × 5-bit + FP16 scale</td><td>(160 + 16) / 32 = 5.5</td></tr>
+<tr><td>Q5_1</td><td>32 × 5-bit + scale + min</td><td>(160 + 32) / 32 = 6.0</td></tr>
+<tr><td>Q8_0</td><td>32 × 8-bit + FP16 scale</td><td>(256 + 16) / 32 = 8.5</td></tr>
+</tbody></table></div>
+<p>Hugging Face's GGUF table labels all of these as legacy methods that are no longer widely used. Q8_0 is the exception in practice. It is the near-lossless option, and <code>convert_hf_to_gguf.py</code> can write it directly. The 4- and 5-bit legacy types have been overtaken: in llama.cpp's Llama 3 8B measurements, Q4_K_S is about the same size as Q4_0 but has clearly lower KL divergence (0.043 vs 0.072).</p>
+
+<div class="cta-box lead"><div><h3>Want this done for your model?</h3><p>Tell us your model, hardware and target. We send back a free optimization plan: recommended format, expected memory and a quality-check method.</p></div><a class="btn btn-primary" href="../get-optimized.html">Get the free plan</a></div>
+
+<h2 id="k-quants">K-quants: Q2_K to Q6_K and the _S/_M/_L suffix</h2>
+<p>K-quants, added to llama.cpp in mid-2023, group weights into <strong>super-blocks of 256</strong>, each split into sub-blocks of 16 or 32. Each sub-block's scale (and, for some types, its minimum) is itself quantized to 4–8 bits, with an FP16 scale (and min) stored once per super-block. Quantizing the scales lets the format use fine-grained ranges without much overhead. The base layouts are:</p>
+<ul>
+<li><strong>Q2_K</strong>: 16 × 16 sub-blocks, 4-bit scales and mins, 2.625 bpw.</li>
+<li><strong>Q3_K</strong>: 16 × 16, 6-bit scales, 3.4375 bpw.</li>
+<li><strong>Q4_K</strong>: 8 × 32, 6-bit scales and mins, 4.5 bpw.</li>
+<li><strong>Q5_K</strong>: 8 × 32, 6-bit scales and mins, 5.5 bpw.</li>
+<li><strong>Q6_K</strong>: 16 × 16, 8-bit scales, 6.5625 bpw.</li>
+</ul>
+<p>The suffix names a <strong>mix</strong>, not a different block layout. llama.cpp knows that some tensors are more sensitive than others, especially the attention value projection (<code>attn_v</code>) and the feed-forward down projection (<code>ffn_down</code>), and promotes them to a higher type:</p>
+<ul>
+<li><strong>_S (small)</strong> leaves almost every tensor at the base type.</li>
+<li><strong>_M (medium)</strong> promotes part of the sensitive tensors. In Q4_K_M, the <code>attn_v</code> and <code>ffn_down</code> tensors in the first and last eighth of the layers, plus every third layer in between, use Q6_K. For a 32-layer model that is half of them.</li>
+<li><strong>_L (large)</strong>, offered only for Q3_K, promotes these tensors further (to Q5_K).</li>
+</ul>
+<p>When a k-quant name has no suffix, it means _M: Q3_K, Q4_K and Q5_K are aliases for Q3_K_M, Q4_K_M and Q5_K_M. Q6_K has a single variant.</p>
+
+<h2 id="i-quants-imatrix">I-quants and the importance matrix</h2>
+<p>I-quants (IQ1_S up to IQ4_XS) aim for the best quality at very low bit rates. Instead of evenly spaced levels, most of them encode small groups of weights as entries in a codebook. IQ2_XXS, for example, stores groups of 8 weights as an index into 256 points chosen from the E8 lattice, an idea adapted from the QuIP# research. Signs are stored separately. IQ4_NL and IQ4_XS use 16 non-uniformly spaced levels, clustered closer together near zero where most weights sit.</p>
+<p>Almost all low-bit types benefit from an <strong>importance matrix (imatrix)</strong>. To build one, <code>llama-imatrix</code> runs calibration text through the model and records, for each weight column, the average squared activation it receives. <code>llama-quantize</code> then minimises a <em>weighted</em> rounding error, so weights that feed large activations are rounded more carefully. The imatrix also improves k-quants and legacy quants. For the lowest-bit types (the IQ1 and IQ2 families and the smallest IQ3 types) and for Q2_K_S, llama-quantize refuses to run without one.</p>
+<aside class="note"><p>An imatrix is only as good as its calibration text. Use generic, diverse text, or text close to your workload. Very narrow data can make the model better at that data and worse at everything else.</p></aside>
+
+<h2 id="bits-per-weight">Bits per weight, file size and how to pick</h2>
+<p>Each type has two bit counts. The <em>nominal</em> one comes from the block layout. The <em>effective</em> one is the whole file divided by the parameter count, which includes the mixes, the output layer and the unquantized norms. The table below lists effective values that llama.cpp's quantize README reports for Llama 3.1 8B. They are approximate and vary slightly between models.</p>
+<div class="table-wrap"><table>
+<caption>Approximate effective bits per weight, Llama 3.1 8B (llama.cpp quantize README)</caption>
+<thead><tr><th>Type</th><th>Nominal bpw</th><th>Effective bpw</th><th>Size (GiB)</th></tr></thead>
+<tbody>
+<tr><td>IQ1_S</td><td>1.56</td><td>2.00</td><td>1.87</td></tr>
+<tr><td>IQ2_XXS</td><td>2.06</td><td>2.38</td><td>2.23</td></tr>
+<tr><td>IQ2_XS</td><td>2.31</td><td>2.59</td><td>2.42</td></tr>
+<tr><td>IQ2_M</td><td>mix</td><td>2.93</td><td>2.74</td></tr>
+<tr><td>Q2_K</td><td>2.625</td><td>3.16</td><td>2.95</td></tr>
+<tr><td>IQ3_XXS</td><td>3.06</td><td>3.25</td><td>3.04</td></tr>
+<tr><td>IQ3_M</td><td>mix</td><td>3.76</td><td>3.52</td></tr>
+<tr><td>Q3_K_M</td><td>3.4375 base</td><td>4.00</td><td>3.74</td></tr>
+<tr><td>IQ4_XS</td><td>4.25</td><td>4.46</td><td>4.17</td></tr>
+<tr><td>Q4_K_S</td><td>4.5 base</td><td>4.67</td><td>4.36</td></tr>
+<tr><td>Q4_K_M</td><td>4.5 base</td><td>4.89</td><td>4.58</td></tr>
+<tr><td>Q5_K_M</td><td>5.5 base</td><td>5.70</td><td>5.33</td></tr>
+<tr><td>Q6_K</td><td>6.5625</td><td>6.56</td><td>6.14</td></tr>
+<tr><td>Q8_0</td><td>8.5</td><td>8.50</td><td>7.95</td></tr>
+<tr><td>F16</td><td>16</td><td>16.00</td><td>14.96</td></tr>
+</tbody></table></div>
+<div class="example">
+<h3>Worked example: file size of a 7B or 8B model</h3>
+<p>File size ≈ parameters × effective bpw ÷ 8.</p>
+<ul>
+<li>Llama 3.1 8B (8.03 B parameters) at Q4_K_M: 8.03 × 10<sup>9</sup> × 4.894 ÷ 8 ≈ 4.91 × 10<sup>9</sup> bytes = 4.91 GB, or 4.58 GiB (÷ 1,073,741,824). That matches the table.</li>
+<li>The same model at Q8_0: 8.03 × 8.50 ÷ 8 ≈ 8.53 GB (7.95 GiB). At F16: about 16.06 GB.</li>
+<li>A 7B model, assuming similar effective rates, at Q4_K_M: 7 × 4.89 ÷ 8 ≈ 4.28 GB. At Q5_K_M: 7 × 5.70 ÷ 8 ≈ 4.99 GB. At Q6_K: 7 × 6.56 ÷ 8 ≈ 5.74 GB.</li>
+</ul>
+<p>Why is IQ1_S's effective rate (2.00) so far above its nominal 1.56? The token embeddings and output layer get higher-bit types, and in Llama 3.1 8B each of those matrices is 128,256 × 4,096 ≈ 525 million parameters, together about 13% of the model. Download pages often show GB while tools show GiB, so the same file can look about 7% smaller in one place. At run time, add the KV cache and compute buffers on top of the file size.</p>
+</div>
+<div class="cta-box"><div><h3>Try it: LLM VRAM calculator</h3><p>Weights, KV cache and overhead for any model, quant and context length — with a fit check across 20 GPUs and Macs.</p></div><a class="btn btn-ghost" href="../tools/vram-calculator.html">Open the tool</a></div>
+<p>Plug any of these types into the <a href="../tools/vram-calculator.html">VRAM calculator</a> to include the KV cache at your context length.</p>
+
+<h3>How to pick a quant type</h3>
+<p>llama.cpp's perplexity README publishes a KL-divergence scoreboard for Llama 3 8B, comparing each quant's output distribution with FP16 (lower is better). Mean KLD was about 0.0014 for Q8_0, 0.0055 for Q6_K, 0.011 for Q5_K_M, 0.031 for Q4_K_M (0.028 with an imatrix), 0.072 for Q4_0 and 0.10 for Q3_K_M. Other models will differ, but the ranking is a useful guide:</p>
+<ul>
+<li><strong>Q4_K_M</strong> is the common default. It gives good quality at about 4.9 bpw, and llama.cpp's <code>-hf</code> download option picks it automatically when a repository has it.</li>
+<li><strong>Q5_K_M or Q6_K</strong> are for when you have room and care about code, maths or long reasoning.</li>
+<li><strong>Q8_0</strong> is effectively lossless and a good reference to compare other quants against.</li>
+<li><strong>IQ4_XS</strong> is about 5% smaller than Q4_K_S. With an imatrix, its KL divergence in the scoreboard was slightly higher (0.036 vs 0.032).</li>
+<li><strong>IQ3 and IQ2 types</strong> are for fitting a much larger model into limited memory. A big model at about 3 bpw can beat a small model at 6 bpw, but test it. Below about 3 bpw, quality drops quickly.</li>
+</ul>
+<p>Speed depends on the backend. The README's own throughput tables show some low-bit types running slower than their size suggests, so benchmark on your hardware with <code>llama-bench</code>. For comparisons with GPU-native formats, see <a href="../learn/gptq-vs-awq-vs-gguf.html">GPTQ vs AWQ vs GGUF</a> and the <a href="../learn/llm-quantization-guide.html">LLM quantization guide</a>.</p>
+
+<h2 id="make-your-own">Making your own GGUF with llama.cpp</h2>
+<p>Build llama.cpp, install the Python requirements, convert the Hugging Face checkpoint to a 16-bit GGUF, then quantize it:</p>
+<pre><code>git clone https://github.com/ggml-org/llama.cpp
+cd llama.cpp
+cmake -B build
+cmake --build build --config Release
+python3 -m pip install -r requirements.txt
+
+# 1. Convert a local Hugging Face model folder to BF16 GGUF
+python convert_hf_to_gguf.py ./Llama-3.1-8B-Instruct \
+    --outfile llama-3.1-8b-instruct-bf16.gguf --outtype bf16
+
+# 2. Quantize to Q4_K_M
+./build/bin/llama-quantize llama-3.1-8b-instruct-bf16.gguf \
+    llama-3.1-8b-instruct-Q4_K_M.gguf Q4_K_M</code></pre>
+<p>For i-quants, or to improve any type, build an importance matrix first:</p>
+<pre><code>./build/bin/llama-imatrix -m llama-3.1-8b-instruct-bf16.gguf \
+    -f calibration.txt -o imatrix.gguf -ngl 99
+
+./build/bin/llama-quantize --imatrix imatrix.gguf \
+    llama-3.1-8b-instruct-bf16.gguf llama-3.1-8b-instruct-IQ3_XXS.gguf IQ3_XXS</code></pre>
+<p><code>convert_hf_to_gguf.py</code> accepts <code>--outtype</code> values f32, f16, bf16, q8_0, tq1_0, tq2_0 and auto. With <code>--remote</code>, it reads safetensors directly from a Hugging Face repo ID. Useful <code>llama-quantize</code> options include <code>--output-tensor-type</code>, <code>--token-embedding-type</code>, <code>--tensor-type</code> for per-tensor overrides, and <code>--pure</code> to turn the k-quant mixes off. Check quality with <code>llama-perplexity</code> using <code>--kl-divergence-base</code> and <code>--kl-divergence</code>. The full walkthrough is in <a href="../learn/quantize-a-model.html">how to quantize a model</a>.</p>
+<aside class="warn"><p>Always quantize from the 16- or 32-bit file. The <code>--allow-requantize</code> flag exists, but llama.cpp warns that requantizing an already-quantized model can severely reduce quality.</p></aside>
+
+<div class="takeaways"><h2 id="takeaways">Key takeaways</h2><ul>
+<li>GGUF is llama.cpp's single-file, memory-mappable format. Each tensor carries its own quant type.</li>
+<li>Legacy types use 32-weight blocks (Q8_0 = 8.5 bpw). K-quants use 256-weight super-blocks with quantized sub-block scales.</li>
+<li>_S/_M/_L are mixes that give sensitive tensors more bits. A k-quant name without a suffix means _M.</li>
+<li>I-quants use codebooks and non-uniform levels, and the lowest-bit ones require an importance matrix.</li>
+<li>File size ≈ parameters × effective bpw ÷ 8: about 4.9 GB for an 8B model at Q4_K_M.</li>
+</ul></div>
+
+<section class="faq"><h2 id="faq">Frequently asked questions</h2>
+<details><summary>What does the K in Q4_K_M mean?</summary><p>It marks a k-quant, the family that uses 256-weight super-blocks with quantized sub-block scales. The M means the medium mix, where some sensitive tensors get a higher-bit type.</p></details>
+<details><summary>Is Q4_K_M or Q5_K_M better?</summary><p>Q5_K_M stays closer to the original model (lower KL divergence) but is about 16% larger. Choose Q5_K_M if it fits with room left for your context. Otherwise Q4_K_M.</p></details>
+<details><summary>Do I need an imatrix?</summary><p>For IQ1 and IQ2 types, the smallest IQ3 types, and Q2_K_S, yes: llama-quantize won't run without one. For other types it's optional but usually helps.</p></details>
+<details><summary>Why is my Q4 file bigger than 4 bits × parameters?</summary><p>Block scales, higher-bit mixes for sensitive tensors, a Q6_K output layer and unquantized norms raise the effective rate. Q4_K_M lands near 4.9 bpw.</p></details>
+<details><summary>Can I convert GPTQ or AWQ files to GGUF?</summary><p>The usual route is to start from the original 16-bit Hugging Face checkpoint and convert that. Requantizing already-quantized weights adds a second round of error.</p></details>
+</section>
+
+<section class="sources"><h2 id="sources">Sources and further reading</h2><ol>
+<li><a href="https://github.com/ggml-org/ggml/blob/master/docs/gguf.md" rel="noopener" target="_blank">GGUF specification (ggml docs)</a> — file structure, design goals and naming convention.</li>
+<li><a href="https://huggingface.co/docs/hub/gguf" rel="noopener" target="_blank">Hugging Face Hub: GGUF</a> — table of quantization types with block layouts and bits per weight.</li>
+<li><a href="https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md" rel="noopener" target="_blank">llama.cpp quantize README</a> — conversion and quantize commands, plus measured bpw and sizes for Llama 3.1 8B.</li>
+<li><a href="https://github.com/ggml-org/llama.cpp/pull/1684" rel="noopener" target="_blank">llama.cpp PR #1684: k-quants</a> — the original super-block design and _S/_M/_L mixes.</li>
+<li><a href="https://github.com/ggml-org/llama.cpp/pull/4773" rel="noopener" target="_blank">llama.cpp PR #4773: 2-bit i-quants</a> — the E8-lattice codebook behind IQ2_XXS.</li>
+<li><a href="https://github.com/ggml-org/llama.cpp/pull/4861" rel="noopener" target="_blank">llama.cpp PR #4861: importance matrix</a> — how the imatrix is computed and used.</li>
+<li><a href="https://github.com/ggml-org/llama.cpp/blob/master/tools/imatrix/README.md" rel="noopener" target="_blank">llama.cpp imatrix README</a> — llama-imatrix usage.</li>
+<li><a href="https://github.com/ggml-org/llama.cpp/blob/master/tools/perplexity/README.md" rel="noopener" target="_blank">llama.cpp perplexity README</a> — the KL-divergence method and the Llama 3 8B scoreboard.</li>
+</ol></section>
+
+<div class="byline"><div><b>About this guide.</b> Written and fact-checked by the Quantization.com editorial team against the primary sources listed above. Spotted an error or an outdated command? <a href="../contact.html?topic=Correction">Send a correction</a> — we fix verified issues within a few days. See our <a href="../about.html#editorial-policy">editorial policy</a>.</div></div>
+<div class="share" aria-label="Share this page"><a class="btn btn-ghost btn-sm" data-share="copy" href="#">Copy link</a><a class="btn btn-ghost btn-sm" data-share="x" href="#">Post on X</a><a class="btn btn-ghost btn-sm" data-share="linkedin" href="#">LinkedIn</a><a class="btn btn-ghost btn-sm" data-share="reddit" href="#">Reddit</a><a class="btn btn-ghost btn-sm" data-share="hn" href="#">Hacker News</a></div>
+</div>
+<aside class="art-side"><nav class="toc" aria-label="On this page"><h2>On this page</h2><ol><li><a href="#what-is-gguf">What GGUF is</a></li><li><a href="#legacy-quants">Legacy quants: Q4_0, Q4_1, Q5_0, Q5_1, Q8_0</a></li><li><a href="#k-quants">K-quants: Q2_K to Q6_K and the _S/_M/_L suffix</a></li><li><a href="#i-quants-imatrix">I-quants and the importance matrix</a></li><li><a href="#bits-per-weight">Bits per weight, file size and how to pick</a></li><li><a href="#make-your-own">Making your own GGUF with llama.cpp</a></li><li><a href="#takeaways">Key takeaways</a></li><li><a href="#faq">Frequently asked questions</a></li><li><a href="#sources">Sources and further reading</a></li></ol></nav><div class="side-cta"><h3>Free optimization plan</h3><p>Send your model and hardware; get a recommended format and memory estimate back.</p><a class="btn btn-primary btn-sm" href="../get-optimized.html">Request the plan</a></div></aside>
+</div>
+<section class="related"><h2>Keep reading</h2><ul class="alist"><li><a href="../learn/gptq-vs-awq-vs-gguf.html"><span class="track track-ai">AI models</span><h3>GPTQ vs AWQ vs GGUF vs EXL2: LLM quantization methods compared</h3><p>How GPTQ, AWQ, GGUF, EXL2/EXL3, bitsandbytes, HQQ and FP8 work, where each runs best, and a scenario-by-scenario guide to picking one.</p><span class="meta">10 min</span></a></li><li><a href="../learn/hardware-for-local-llms.html"><span class="track track-ai">AI models</span><h3>Choosing hardware for local LLMs: memory first, bandwidth second</h3><p>What fits in 8–80 GB at Q4, Q5 and Q8, why memory bandwidth caps tokens per second, and how GPUs, Apple Silicon and CPUs compare.</p><span class="meta">10 min</span></a></li><li><a href="../learn/kv-cache-quantization.html"><span class="track track-ai">AI models</span><h3>KV cache quantization: the memory math and how to do it</h3><p>The KV cache formula, worked Llama 3.1 examples at 8K and 128K context, and how to quantize the cache in llama.cpp, Ollama and vLLM.</p><span class="meta">9 min</span></a></li><li><a href="../learn/llm-quantization-guide.html"><span class="track track-ai">AI models</span><h3>LLM quantization: the complete practical guide</h3><p>Memory math, method families from GPTQ to NVFP4, quality metrics, and a hardware-first checklist for quantizing LLMs.</p><span class="meta">10 min</span></a></li></ul></section>
+</article>
+</main>
+<footer class="site"><div class="wrap">
+<div class="foot-grid">
+<div><a class="logo" href="../index.html"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x=".5" y=".5" width="31" height="31" rx="8" fill="#121A2E" stroke="var(--rule-2)"/><path d="M5 20c3-11 7-11 11 0s7 11 11 0" fill="none" stroke="var(--signal)" stroke-width="2" opacity=".9"/><path d="M5 22h4v-6h4v-5h6v5h4v6h4" fill="none" stroke="var(--step)" stroke-width="2.4" stroke-linejoin="round"/></svg><span>Quantization<span class="tld">.com</span></span></a>
+<p class="muted small" style="margin-top:12px;max-width:40ch">Calculators, visual explainers and format guides for representing models, signals and sound with fewer bits — and measuring what it costs.</p>
+<form class="js-form inline-form" data-subject="Newsletter signup" data-ok="You're subscribed. The next issue lands next week." style="margin-top:14px">
+<input type="email" name="email" required placeholder="you@example.com" aria-label="Email for the weekly newsletter"><input class="hp" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true"><input type="hidden" name="list" value="Weekly explainer"><button class="btn btn-primary btn-sm" type="submit">Subscribe</button><div class="form-msg" role="status"></div></form></div>
+<div><h4>Tools</h4><ul><li><a href="../tools/vram-calculator.html">LLM VRAM calculator</a></li><li><a href="../tools/quantization-playground.html">Quantization playground</a></li><li><a href="../tools/adc-calculator.html">ADC and bit-depth calculator</a></li><li><a href="../tools/music-quantizer.html">MIDI quantize and swing lab</a></li><li><a href="../tools/energy-levels.html">Energy levels calculator</a></li></ul></div>
+<div><h4>Learn</h4><ul><li><a href="../learn/index.html">All guides</a></li><li><a href="../learn/llm-quantization-guide.html">LLM quantization guide</a></li><li><a href="../formats.html">Formats atlas</a></li><li><a href="../glossary.html">Glossary</a></li><li><a href="../cheat-sheet.html">Cheat sheet</a></li><li><a href="../videos.html">Videos</a></li><li><a href="../resources.html">Resources</a></li></ul></div>
+<div><h4>Get involved</h4><ul><li><a href="../get-optimized.html">Free optimization plan</a></li><li><a href="../challenge.html">Quantization Challenge</a></li><li><a href="../support.html">Support the project</a></li><li><a href="../careers.html">Careers and talent</a></li><li><a href="../advertise.html">Advertise and sponsor</a></li></ul></div>
+<div><h4>Company</h4><ul><li><a href="../about.html">About and editorial policy</a></li><li><a href="../contact.html">Contact</a></li><li><a href="https://web.works/contact" target="_blank" rel="noopener">Buy, partner or sponsor</a></li><li><a href="../privacy.html">Privacy policy</a></li><li><a href="../terms.html">Terms of use</a></li><li><a href="../cookies.html">Cookie policy</a></li><li><a href="../disclaimer.html">Disclaimer</a></li><li><a href="../trademark.html">Trademark and copyright</a></li><li><a href="../sitemap.html">Sitemap</a></li></ul></div>
+</div>
+<div class="legal">
+<p><b>Trademark and copyright disclosure.</b> “Quantization” is a generic scientific and engineering term. Quantization.com claims no exclusive rights in the word and is an independent educational publication, not affiliated with, endorsed by or sponsored by any company, project, product or person that uses the term. Product names, model names and logos mentioned on this site (for example llama.cpp, GGUF, PyTorch, TensorFlow, NVIDIA, Apple, Hugging Face) are trademarks of their respective owners and are used for identification only. <a href="../trademark.html">Read the full disclosure</a>.</p>
+<p>Content is for general education and is not professional engineering, legal or financial advice. This site shows advertising served by Google AdSense. © <span class="year">2026</span> Quantization.com. Original text, tools, code and graphics © Quantization.com unless otherwise credited.</p>
+</div></div></footer>
+<div class="mcta"><a class="btn btn-ghost" href="../tools/vram-calculator.html">VRAM calculator</a><a class="btn btn-primary" href="../get-optimized.html">Free plan</a></div>
+<div class="cookie" id="cookie" role="dialog" aria-label="Cookie choices"><p>We use essential browser storage for site settings and, with your consent, cookies from Google to personalise and measure ads. Choose “Essential only” to receive non-personalised ads. Details in our <a href="../cookies.html">cookie policy</a>.</p>
+<div class="acts"><button class="btn btn-primary btn-sm" type="button" data-consent="all">Accept all</button><button class="btn btn-ghost btn-sm" type="button" data-consent="essential">Essential only</button></div></div>
+<script src="../assets/js/site.js" defer></script>
+</body>
+</html>

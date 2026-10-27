@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GPTQ vs AWQ vs GGUF vs EXL2: which to use | Quantization.com</title>
+<meta name="description" content="Compare GPTQ, AWQ, GGUF, EXL2/EXL3, bitsandbytes, HQQ and FP8: how each LLM quantization method works, the hardware it suits, and which to choose.">
+<link rel="canonical" href="https://quantization.com/learn/gptq-vs-awq-vs-gguf.html">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#121A2E">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Quantization.com">
+<meta property="og:title" content="GPTQ vs AWQ vs GGUF vs EXL2: LLM quantization methods compared">
+<meta property="og:description" content="Compare GPTQ, AWQ, GGUF, EXL2/EXL3, bitsandbytes, HQQ and FP8: how each LLM quantization method works, the hardware it suits, and which to choose.">
+<meta property="og:url" content="https://quantization.com/learn/gptq-vs-awq-vs-gguf.html">
+<meta property="og:image" content="https://quantization.com/assets/img/og.svg">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/img/icon.svg">
+<link rel="manifest" href="../site.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wdth,wght@75..100,400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/site.css">
+<script>try{var t=localStorage.getItem('qz-theme');if(t)document.documentElement.setAttribute('data-theme',t);if(localStorage.getItem('qz-consent')==='essential'){(window.adsbygoogle=window.adsbygoogle||[]).requestNonPersonalizedAds=1}}catch(e){}</script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6620975821265271" crossorigin="anonymous"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Quantization.com","url":"https://quantization.com/","logo":"https://quantization.com/assets/img/icon.svg"}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"GPTQ vs AWQ vs GGUF vs EXL2: LLM quantization methods compared","description":"Compare GPTQ, AWQ, GGUF, EXL2/EXL3, bitsandbytes, HQQ and FP8: how each LLM quantization method works, the hardware it suits, and which to choose.","datePublished":"2026-10-27","dateModified":"2026-10-27","wordCount":2185,"author":{"@type":"Organization","name":"Quantization.com editorial team","url":"https://quantization.com/about.html"},"publisher":{"@type":"Organization","name":"Quantization.com","logo":{"@type":"ImageObject","url":"https://quantization.com/assets/img/icon.svg"}},"mainEntityOfPage":"https://quantization.com/learn/gptq-vs-awq-vs-gguf.html","image":"https://quantization.com/assets/img/og.svg"}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://quantization.com/"},{"@type":"ListItem","position":2,"name":"Learn","item":"https://quantization.com/learn/"},{"@type":"ListItem","position":3,"name":"GPTQ vs AWQ vs GGUF vs EXL2: LLM quantization methods compared","item":"https://quantization.com/learn/gptq-vs-awq-vs-gguf.html"}]}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is AWQ better than GPTQ?","acceptedAnswer":{"@type":"Answer","text":"Neither wins everywhere. Both are 4-bit weight-only methods with similar memory use. AWQ is less sensitive to the calibration set; GPTQ supports more bit widths. Kernel support in your runtime and the quality of the specific checkpoint usually matter more than the algorithm name."}},{"@type":"Question","name":"Can I run GGUF files on a GPU?","acceptedAnswer":{"@type":"Answer","text":"Yes. llama.cpp has CUDA, HIP, Metal, Vulkan and SYCL backends, and you can offload all or some layers to the GPU with the -ngl option."}},{"@type":"Question","name":"Do I need calibration data to quantize a model?","acceptedAnswer":{"@type":"Answer","text":"Only for some methods. GPTQ, AWQ and EXL2/EXL3 need a small sample of text. bitsandbytes, HQQ and dynamic FP8 need none. GGUF k-quants work without it, but an importance matrix built from calibration text improves results and is practically required for 2-bit i-quants."}},{"@type":"Question","name":"What is the difference between Q4_K_M and Q4_K_S?","acceptedAnswer":{"@type":"Answer","text":"Both use the Q4_K type for most tensors. Q4_K_M promotes some of the most sensitive tensors (originally half of the attention value and feed-forward down-projection tensors) to the higher-precision Q6_K type, so it is slightly larger: 4.89 versus 4.67 bits per weight on Llama 3.1 8B in the llama.cpp README."}},{"@type":"Question","name":"Can I fine-tune a GPTQ or AWQ model?","acceptedAnswer":{"@type":"Answer","text":"Yes, by training PEFT adapters on top of the frozen quantized weights, which Transformers supports for both. bitsandbytes NF4 remains the usual QLoRA route."}}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="ownerbar" role="note"><a href="https://web.works/contact" target="_blank" rel="noopener">Contact, if you are interested in this website/domain name/Sponsorship/Advertisement/Partnership</a></div>
+<header class="site"><div class="wrap nav">
+<a class="logo" href="../index.html" aria-label="Quantization.com home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x=".5" y=".5" width="31" height="31" rx="8" fill="#121A2E" stroke="var(--rule-2)"/><path d="M5 20c3-11 7-11 11 0s7 11 11 0" fill="none" stroke="var(--signal)" stroke-width="2" opacity=".9"/><path d="M5 22h4v-6h4v-5h6v5h4v6h4" fill="none" stroke="var(--step)" stroke-width="2.4" stroke-linejoin="round"/></svg><span>Quantization<span class="tld">.com</span></span></a>
+<ul class="menu" id="menu"><li><a href="../index.html">Home</a></li><li><a href="../tools/index.html">Tools</a></li><li><a href="../learn/index.html" class="active" aria-current="page">Learn</a></li><li><a href="../formats.html">Formats</a></li><li><a href="../videos.html">Videos</a></li><li><a href="../resources.html">Resources</a></li><li><a href="../challenge.html">Challenge</a></li><li><a href="../support.html">Support</a></li></ul>
+<div class="nav-cta"><a class="btn btn-primary btn-sm btn-head" href="../get-optimized.html">Free optimization plan</a>
+<button class="icon-btn" id="themeBtn" type="button" aria-label="Switch light or dark theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 4v16" /><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg></button>
+<button class="icon-btn burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button></div>
+</div></header>
+<main id="main">
+<nav class="crumbs wrap" aria-label="Breadcrumb"><a href="../index.html">Home</a> <span aria-hidden="true">/</span> <a href="../learn/index.html">Learn</a> <span aria-hidden="true">/</span> <span aria-current="page">GPTQ vs AWQ vs GGUF vs EXL2: LLM quantization methods compared</span></nav>
+<article class="wrap">
+<header class="art-head">
+<span class="track track-ai">AI models</span>
+<h1>GPTQ vs AWQ vs GGUF vs EXL2: LLM quantization methods compared</h1>
+<div class="art-meta"><span>By the Quantization.com editorial team</span><span>Updated <time datetime="2026-10-27">October 27, 2026</time></span><span>10 min read</span></div>
+</header>
+<div class="art-layout">
+<div class="prose">
+<p class="lede">GPTQ and AWQ are calibration-based 4-bit methods built for GPU inference, GGUF is llama.cpp's file format for CPUs, Apple silicon and mixed CPU/GPU setups, and EXL2/EXL3 trade portability for precise bitrate control on NVIDIA cards. bitsandbytes and HQQ quantize on the fly without calibration, which makes them the usual choice for fine-tuning, while FP8 is the default serving format on recent data-centre GPUs. This guide explains how each one works and which to pick for your hardware.</p>
+
+<h2 id="algorithm-vs-format">Algorithm, file format or runtime?</h2>
+<p>These names are not the same kind of thing. GPTQ, AWQ and HQQ are <em>algorithms</em> for choosing low-bit weights that keep a model's outputs close to the original. GGUF is a <em>file format</em> whose quantization types are defined by the llama.cpp project. EXL2 and EXL3 are formats tied to the ExLlamaV2 and ExLlamaV3 libraries. bitsandbytes is a <em>library</em> that quantizes at load time. FP8 is a <em>number format</em> that hardware executes natively.</p>
+<p>In practice, your hardware decides your runtime, and your runtime decides your method. For the basics of scales, bits and rounding error, start with <a href="../learn/what-is-quantization.html">what quantization is</a> and the broader <a href="../learn/llm-quantization-guide.html">LLM quantization guide</a>.</p>
+
+<h2 id="how-each-works">How each method works</h2>
+
+<h3>GPTQ: second-order error correction, layer by layer</h3>
+<p>GPTQ (Frantar et al., 2022) quantizes one linear layer at a time. It feeds a small calibration set through the model, records the inputs each layer sees, and looks for low-bit weights that minimise the squared difference between the original and quantized layer outputs. After each column of weights is rounded, the remaining unquantized columns are adjusted to absorb the error, using approximate second-order (inverse Hessian) information. Because that Hessian depends only on the layer's inputs, one update serves every row, which keeps the method fast on very large models.</p>
+<p>The paper's calibration set was 128 random 2,048-token segments of C4 web text, and it reports quantizing a 175B-parameter model in roughly four GPU hours. Grouping (one scale per 128 consecutive weights) costs about 0.15 extra bits per weight and helps most at 3 bits. Transformers now runs GPTQ through GPT-QModel (AutoGPTQ is no longer supported), with 2, 3, 4 and 8 bits.</p>
+
+<h3>AWQ: protect the weights that see large activations</h3>
+<p>AWQ (Lin et al., MLSys 2024) starts from an observation: around 1% of weights matter far more than the rest, and you find them by looking at activation magnitudes, not weight magnitudes. Keeping those channels in FP16 helps, but mixed-precision storage is awkward for hardware. AWQ instead scales each salient input channel up before quantizing and scales the matching activations down, an equivalent transformation that shrinks the relative rounding error on important weights. The scale is average activation magnitude raised to a power α, chosen by a small grid search.</p>
+<p>There is no backpropagation or layer reconstruction, so AWQ uses calibration data only for activation statistics and is less prone to overfitting it. The paper targets weight-only INT4/INT3 with group size 128. Note the tooling shift: the AutoAWQ repository was archived in May 2025, and AWQ support moved into vLLM's llm-compressor; MLX-LM also supports AWQ on Macs.</p>
+
+<h3>GGUF: k-quants, i-quants and the importance matrix</h3>
+<p>A GGUF file is a single binary holding tensors plus key-value metadata, designed for fast memory-mapped loading; it replaced the older GGML, GGMF and GGJT formats. llama.cpp, which reads it, is plain C/C++ with optimised x86 and ARM NEON paths, treats Apple silicon as a first-class target, and has GPU backends including CUDA, HIP, Metal, Vulkan and SYCL. Its defining feature is hybrid inference: you can offload some layers to a GPU (the <code>-ngl</code> option) and run the rest on the CPU, so a model larger than your VRAM still runs.</p>
+<p><strong>K-quants</strong> group weights into 256-weight super-blocks split into smaller blocks, each with its own quantized scale (and, for "type-1" variants, a minimum). Q4_K, for example, uses eight blocks of 32 weights with 6-bit scales and mins, which works out to 4.5 bits per weight. The suffixes are recipes: in the original k-quants design, Q4_K_M stored half of the attention value and feed-forward down-projection tensors in Q6_K and everything else in Q4_K, spending extra bits where errors hurt most. <strong>I-quants</strong> (the IQ types) borrow ideas from QuIP#: IQ2_XXS, for example, encodes groups of 8 weights as points on a grid derived from the E8 lattice, which makes sizes near 2 bits per weight usable.</p>
+<p>Both families can use an <strong>importance matrix</strong> (imatrix): run <code>llama-imatrix</code> over calibration text to accumulate squared-activation statistics, then pass the file to <code>llama-quantize --imatrix</code>. It is optional for higher-bit k-quants but effectively required for 2-bit i-quants. Measured on Llama 3.1 8B, Q4_K_M is 4.89 bits per weight, Q6_K 6.56 and Q8_0 8.50. For the full list, see <a href="../learn/gguf-quant-types.html">GGUF quant types explained</a>.</p>
+
+<h3>EXL2 and EXL3: fractional bitrates for NVIDIA GPUs</h3>
+<p>EXL2, the ExLlamaV2 format, uses the same optimisation as GPTQ but mixes 2, 3, 4, 5, 6 and 8-bit settings within a model and even within a layer. The converter measures error for several settings per matrix against calibration data and picks the mix that minimises worst-case error at a target average anywhere from 2 to 8 bits per weight. ExLlamaV2 is now archived; its successor ExLlamaV3 uses EXL3, a streamlined variant of QTIP (trellis-coded quantization from Cornell). EXL3 accepts fractional targets such as 3.75 bits per weight and requires CUDA. TabbyAPI is the recommended OpenAI-compatible server.</p>
+
+<h3>bitsandbytes: LLM.int8(), NF4 and QLoRA</h3>
+<p>bitsandbytes quantizes as the model loads, with no calibration data. Its 8-bit mode implements LLM.int8(): matrix multiplications run in INT8 with per-vector scales, while rare outlier feature dimensions (above a default threshold of 6.0) are split out and multiplied in 16-bit. Its 4-bit mode offers FP4 and NF4; the library default is FP4, but the Transformers documentation recommends NF4 when training 4-bit base models.</p>
+<p>The 4-bit path is the foundation of QLoRA (Dettmers et al., 2023): freeze an NF4-quantized base model, compute in BF16, and train small low-rank adapters on top. QLoRA adds double quantization of the scale constants and paged optimisers, and the paper reports fine-tuning a 65B model on a single 48 GB GPU.</p>
+
+<h3>HQQ: calibration-free, optimisation-based</h3>
+<p>HQQ (Half-Quadratic Quantization, Mobius Labs, 2023) needs no calibration data. It optimises the zero-point against a sparsity-promoting error between original and dequantized weights, using closed-form updates instead of gradients; the authors report processing Llama-2-70B in under five minutes. Transformers runs HQQ on the fly at 8, 4, 3, 2 and 1 bits, with PEFT support.</p>
+
+<h3>FP8: hardware-native 8-bit floating point</h3>
+<p>FP8 stores weights and usually activations as 8-bit floats, typically E4M3 (maximum magnitude 448). Unlike INT4 weight-only methods, FP8 W8A8 lets tensor cores compute in 8 bits, which helps batched serving. vLLM documents full FP8 compute on GPUs with compute capability 8.9 or higher (Ada Lovelace, Hopper, Blackwell) and a weight-only fallback on Turing and Ampere. Its recommended dynamic scheme uses per-channel weight scales and per-token activation scales computed at run time, so no calibration data is needed. See <a href="../learn/number-formats.html">number formats for AI</a> for how E4M3 compares with BF16 and FP4.</p>
+
+<div class="cta-box lead"><div><h3>Want this done for your model?</h3><p>Tell us your model, hardware and target. We send back a free optimization plan: recommended format, expected memory and a quality-check method.</p></div><a class="btn btn-primary" href="../get-optimized.html">Get the free plan</a></div>
+
+<h2 id="comparison-table">Side-by-side comparison</h2>
+<div class="table-wrap"><table>
+<caption>Typical characteristics; check each project's documentation for current support.</caption>
+<thead><tr><th>Method</th><th>Calibration data?</th><th>Typical bits</th><th>Best hardware</th><th>Main runtimes</th><th>Fine-tuning friendly?</th></tr></thead>
+<tbody>
+<tr><td>GPTQ</td><td>Yes (small set)</td><td>4 (also 2, 3, 8)</td><td>NVIDIA GPUs; also AMD, Intel, CPU via GPT-QModel</td><td>vLLM, SGLang, Transformers</td><td>Yes, with PEFT adapters</td></tr>
+<tr><td>AWQ</td><td>Yes (statistics only)</td><td>4</td><td>NVIDIA GPUs</td><td>vLLM, Transformers, MLX-LM</td><td>Yes, with PEFT adapters</td></tr>
+<tr><td>GGUF</td><td>Optional (imatrix)</td><td>≈1.5–8, plus 16-bit</td><td>CPU, Apple silicon, CPU+GPU offload</td><td>llama.cpp and apps built on it</td><td>Not directly (Transformers dequantizes it first)</td></tr>
+<tr><td>EXL2 / EXL3</td><td>Yes</td><td>Any average 2–8 (fractional)</td><td>NVIDIA GPUs (CUDA)</td><td>ExLlamaV2 / ExLlamaV3, TabbyAPI</td><td>No</td></tr>
+<tr><td>bitsandbytes</td><td>No (on the fly)</td><td>8 (LLM.int8), 4 (NF4/FP4)</td><td>NVIDIA GPUs; also Intel, CPU</td><td>Transformers, PEFT, vLLM</td><td>Yes: the standard QLoRA path</td></tr>
+<tr><td>HQQ</td><td>No (on the fly)</td><td>1–8</td><td>NVIDIA GPUs; also CPU, Intel GPU</td><td>Transformers, hqq library</td><td>Yes, with PEFT</td></tr>
+<tr><td>FP8</td><td>No for dynamic schemes</td><td>8</td><td>Ada, Hopper, Blackwell, recent AMD Instinct</td><td>vLLM, SGLang, TensorRT-LLM</td><td>Not via PEFT in Transformers</td></tr>
+</tbody></table></div>
+<aside class="note"><p>Bits per weight on a model card rarely equal the nominal bit width. Group scales, zero-points and higher-precision embedding or output layers all add overhead: a 16-bit scale shared by 128 weights alone adds 16 ÷ 128 = 0.125 bits per weight, and llama.cpp's Q4_K_M measures 4.89 bits per weight on Llama 3.1 8B. Use the <a href="../tools/vram-calculator.html">VRAM calculator</a> with the real figure.</p></aside>
+
+<h2 id="which-to-use">Which should I use?</h2>
+
+<h3>A single consumer NVIDIA GPU</h3>
+<p>If the model fits in VRAM, use <strong>EXL3</strong> to tune the bitrate precisely to your card, or <strong>GGUF with all layers offloaded</strong> for the widest choice of ready-made files and tools. If it does not fit, use <strong>GGUF</strong> with partial offload; nothing else here degrades as gracefully when VRAM runs out.</p>
+
+<div class="cta-box"><div><h3>Try it: LLM VRAM calculator</h3><p>Weights, KV cache and overhead for any model, quant and context length — with a fit check across 20 GPUs and Macs.</p></div><a class="btn btn-ghost" href="../tools/vram-calculator.html">Open the tool</a></div>
+
+<h3>A Mac with Apple silicon</h3>
+<p>Use <strong>GGUF</strong> through llama.cpp, where Metal is enabled by default on macOS, or Apple's MLX format via MLX-LM. GPTQ and AWQ tooling is optimised mainly for CUDA, and ExLlama requires it, so neither is the natural starting point on a Mac.</p>
+
+<h3>CPU only</h3>
+<p>Use <strong>GGUF</strong>. Token generation on a CPU is usually limited by memory bandwidth, because every weight is read once per token, so a smaller file generally means faster output. Q4_K_M is the usual starting point; move to Q5_K_M or Q6_K if you have RAM to spare and care about quality.</p>
+
+<h3>A multi-user GPU server with vLLM</h3>
+<p>On Ada, Hopper or Blackwell, start with <strong>FP8 W8A8</strong>: it halves weight memory versus BF16, needs no calibration in its dynamic form, and uses 8-bit tensor-core math. When memory is tighter, or on Ampere, use <strong>INT4 weight-only AWQ or GPTQ</strong> checkpoints, which vLLM runs with Marlin kernels. On Blackwell, llm-compressor can also produce NVFP4. Avoid GGUF here: vLLM's documentation calls its GGUF support highly experimental and under-optimised.</p>
+
+<h3>Fine-tuning</h3>
+<p>Use <strong>bitsandbytes NF4 with QLoRA</strong>, with double quantization and BF16 compute; HQQ is a calibration-free alternative that also works with PEFT. Only the adapters train. A common workflow is to merge the adapter into a 16-bit copy of the base model, then quantize the merged model for deployment.</p>
+
+<aside class="warn"><p>Quality loss is model-specific, and small models suffer most. Before committing, compare your own task evaluation (or at least perplexity) between the 16-bit model and two or three quantized candidates.</p></aside>
+
+<div class="takeaways"><h2 id="takeaways">Key takeaways</h2><ul>
+<li>GPTQ and AWQ are calibration-based algorithms producing 4-bit GPU checkpoints; GGUF and EXL2/EXL3 are formats tied to specific runtimes.</li>
+<li>GGUF via llama.cpp is the answer for CPUs, Macs and models that do not fit in VRAM, thanks to partial GPU offload.</li>
+<li>EXL3 offers fractional bitrates on NVIDIA GPUs; ExLlamaV2 and EXL2 are archived.</li>
+<li>bitsandbytes NF4 (QLoRA) is the default for fine-tuning; HQQ is a calibration-free alternative.</li>
+<li>For vLLM serving, prefer FP8 on Ada/Hopper/Blackwell and INT4 AWQ or GPTQ when memory is tight.</li>
+</ul></div>
+
+<section class="faq"><h2 id="faq">Frequently asked questions</h2>
+<details><summary>Is AWQ better than GPTQ?</summary><p>Neither wins everywhere. Both are 4-bit weight-only methods with similar memory use. AWQ is less sensitive to the calibration set; GPTQ supports more bit widths. Kernel support in your runtime and the quality of the specific checkpoint usually matter more than the algorithm name.</p></details>
+<details><summary>Can I run GGUF files on a GPU?</summary><p>Yes. llama.cpp has CUDA, HIP, Metal, Vulkan and SYCL backends, and you can offload all or some layers to the GPU with the <code>-ngl</code> option.</p></details>
+<details><summary>Do I need calibration data to quantize a model?</summary><p>Only for some methods. GPTQ, AWQ and EXL2/EXL3 need a small sample of text. bitsandbytes, HQQ and dynamic FP8 need none. GGUF k-quants work without it, but an importance matrix built from calibration text improves results and is practically required for 2-bit i-quants.</p></details>
+<details><summary>What is the difference between Q4_K_M and Q4_K_S?</summary><p>Both use the Q4_K type for most tensors. Q4_K_M promotes some of the most sensitive tensors (originally half of the attention value and feed-forward down-projection tensors) to the higher-precision Q6_K type, so it is slightly larger: 4.89 versus 4.67 bits per weight on Llama 3.1 8B in the llama.cpp README.</p></details>
+<details><summary>Can I fine-tune a GPTQ or AWQ model?</summary><p>Yes, by training PEFT adapters on top of the frozen quantized weights, which Transformers supports for both. bitsandbytes NF4 remains the usual QLoRA route.</p></details>
+</section>
+
+<section class="sources"><h2 id="sources">Sources and further reading</h2><ol>
+<li><a href="https://arxiv.org/abs/2210.17323" rel="noopener" target="_blank">GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers</a> — the original GPTQ paper.</li>
+<li><a href="https://arxiv.org/abs/2306.00978" rel="noopener" target="_blank">AWQ: Activation-aware Weight Quantization for LLM Compression and Acceleration</a> — salient-channel scaling.</li>
+<li><a href="https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md" rel="noopener" target="_blank">llama.cpp quantize README</a> — quant types, measured bits per weight and imatrix options.</li>
+<li><a href="https://github.com/ggml-org/llama.cpp/pull/1684" rel="noopener" target="_blank">llama.cpp k-quants pull request</a> — super-block layouts and the _S/_M/_L mixes.</li>
+<li><a href="https://github.com/turboderp-org/exllamav3" rel="noopener" target="_blank">ExLlamaV3 repository</a> — EXL3 format, QTIP basis and TabbyAPI.</li>
+<li><a href="https://arxiv.org/abs/2208.07339" rel="noopener" target="_blank">LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale</a> — outlier decomposition.</li>
+<li><a href="https://arxiv.org/abs/2305.14314" rel="noopener" target="_blank">QLoRA: Efficient Finetuning of Quantized LLMs</a> — NF4, double quantization, paged optimisers.</li>
+<li><a href="https://mobiusml.github.io/hqq_blog/" rel="noopener" target="_blank">Half-Quadratic Quantization of Large Machine Learning Models</a> — the HQQ write-up from its authors.</li>
+<li><a href="https://huggingface.co/docs/transformers/main/en/quantization/overview" rel="noopener" target="_blank">Hugging Face Transformers quantization overview</a> — feature matrix across methods.</li>
+<li><a href="https://docs.vllm.ai/en/latest/features/quantization/" rel="noopener" target="_blank">vLLM quantization documentation</a> — supported methods and hardware.</li>
+</ol></section>
+
+<div class="byline"><div><b>About this guide.</b> Written and fact-checked by the Quantization.com editorial team against the primary sources listed above. Spotted an error or an outdated command? <a href="../contact.html?topic=Correction">Send a correction</a> — we fix verified issues within a few days. See our <a href="../about.html#editorial-policy">editorial policy</a>.</div></div>
+<div class="share" aria-label="Share this page"><a class="btn btn-ghost btn-sm" data-share="copy" href="#">Copy link</a><a class="btn btn-ghost btn-sm" data-share="x" href="#">Post on X</a><a class="btn btn-ghost btn-sm" data-share="linkedin" href="#">LinkedIn</a><a class="btn btn-ghost btn-sm" data-share="reddit" href="#">Reddit</a><a class="btn btn-ghost btn-sm" data-share="hn" href="#">Hacker News</a></div>
+</div>
+<aside class="art-side"><nav class="toc" aria-label="On this page"><h2>On this page</h2><ol><li><a href="#algorithm-vs-format">Algorithm, file format or runtime?</a></li><li><a href="#how-each-works">How each method works</a></li><li><a href="#comparison-table">Side-by-side comparison</a></li><li><a href="#which-to-use">Which should I use?</a></li><li><a href="#takeaways">Key takeaways</a></li><li><a href="#faq">Frequently asked questions</a></li><li><a href="#sources">Sources and further reading</a></li></ol></nav><div class="side-cta"><h3>Free optimization plan</h3><p>Send your model and hardware; get a recommended format and memory estimate back.</p><a class="btn btn-primary btn-sm" href="../get-optimized.html">Request the plan</a></div></aside>
+</div>
+<section class="related"><h2>Keep reading</h2><ul class="alist"><li><a href="../learn/gguf-quant-types.html"><span class="track track-ai">AI models</span><h3>GGUF quant types explained: legacy, k-quants and i-quants</h3><p>Decode GGUF names like Q4_K_M and IQ3_XXS, compare bits per weight, and learn to pick and build the right llama.cpp quant.</p><span class="meta">9 min</span></a></li><li><a href="../learn/hardware-for-local-llms.html"><span class="track track-ai">AI models</span><h3>Choosing hardware for local LLMs: memory first, bandwidth second</h3><p>What fits in 8–80 GB at Q4, Q5 and Q8, why memory bandwidth caps tokens per second, and how GPUs, Apple Silicon and CPUs compare.</p><span class="meta">10 min</span></a></li><li><a href="../learn/kv-cache-quantization.html"><span class="track track-ai">AI models</span><h3>KV cache quantization: the memory math and how to do it</h3><p>The KV cache formula, worked Llama 3.1 examples at 8K and 128K context, and how to quantize the cache in llama.cpp, Ollama and vLLM.</p><span class="meta">9 min</span></a></li><li><a href="../learn/llm-quantization-guide.html"><span class="track track-ai">AI models</span><h3>LLM quantization: the complete practical guide</h3><p>Memory math, method families from GPTQ to NVFP4, quality metrics, and a hardware-first checklist for quantizing LLMs.</p><span class="meta">10 min</span></a></li></ul></section>
+</article>
+</main>
+<footer class="site"><div class="wrap">
+<div class="foot-grid">
+<div><a class="logo" href="../index.html"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x=".5" y=".5" width="31" height="31" rx="8" fill="#121A2E" stroke="var(--rule-2)"/><path d="M5 20c3-11 7-11 11 0s7 11 11 0" fill="none" stroke="var(--signal)" stroke-width="2" opacity=".9"/><path d="M5 22h4v-6h4v-5h6v5h4v6h4" fill="none" stroke="var(--step)" stroke-width="2.4" stroke-linejoin="round"/></svg><span>Quantization<span class="tld">.com</span></span></a>
+<p class="muted small" style="margin-top:12px;max-width:40ch">Calculators, visual explainers and format guides for representing models, signals and sound with fewer bits — and measuring what it costs.</p>
+<form class="js-form inline-form" data-subject="Newsletter signup" data-ok="You're subscribed. The next issue lands next week." style="margin-top:14px">
+<input type="email" name="email" required placeholder="you@example.com" aria-label="Email for the weekly newsletter"><input class="hp" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true"><input type="hidden" name="list" value="Weekly explainer"><button class="btn btn-primary btn-sm" type="submit">Subscribe</button><div class="form-msg" role="status"></div></form></div>
+<div><h4>Tools</h4><ul><li><a href="../tools/vram-calculator.html">LLM VRAM calculator</a></li><li><a href="../tools/quantization-playground.html">Quantization playground</a></li><li><a href="../tools/adc-calculator.html">ADC and bit-depth calculator</a></li><li><a href="../tools/music-quantizer.html">MIDI quantize and swing lab</a></li><li><a href="../tools/energy-levels.html">Energy levels calculator</a></li></ul></div>
+<div><h4>Learn</h4><ul><li><a href="../learn/index.html">All guides</a></li><li><a href="../learn/llm-quantization-guide.html">LLM quantization guide</a></li><li><a href="../formats.html">Formats atlas</a></li><li><a href="../glossary.html">Glossary</a></li><li><a href="../cheat-sheet.html">Cheat sheet</a></li><li><a href="../videos.html">Videos</a></li><li><a href="../resources.html">Resources</a></li></ul></div>
+<div><h4>Get involved</h4><ul><li><a href="../get-optimized.html">Free optimization plan</a></li><li><a href="../challenge.html">Quantization Challenge</a></li><li><a href="../support.html">Support the project</a></li><li><a href="../careers.html">Careers and talent</a></li><li><a href="../advertise.html">Advertise and sponsor</a></li></ul></div>
+<div><h4>Company</h4><ul><li><a href="../about.html">About and editorial policy</a></li><li><a href="../contact.html">Contact</a></li><li><a href="https://web.works/contact" target="_blank" rel="noopener">Buy, partner or sponsor</a></li><li><a href="../privacy.html">Privacy policy</a></li><li><a href="../terms.html">Terms of use</a></li><li><a href="../cookies.html">Cookie policy</a></li><li><a href="../disclaimer.html">Disclaimer</a></li><li><a href="../trademark.html">Trademark and copyright</a></li><li><a href="../sitemap.html">Sitemap</a></li></ul></div>
+</div>
+<div class="legal">
+<p><b>Trademark and copyright disclosure.</b> “Quantization” is a generic scientific and engineering term. Quantization.com claims no exclusive rights in the word and is an independent educational publication, not affiliated with, endorsed by or sponsored by any company, project, product or person that uses the term. Product names, model names and logos mentioned on this site (for example llama.cpp, GGUF, PyTorch, TensorFlow, NVIDIA, Apple, Hugging Face) are trademarks of their respective owners and are used for identification only. <a href="../trademark.html">Read the full disclosure</a>.</p>
+<p>Content is for general education and is not professional engineering, legal or financial advice. This site shows advertising served by Google AdSense. © <span class="year">2026</span> Quantization.com. Original text, tools, code and graphics © Quantization.com unless otherwise credited.</p>
+</div></div></footer>
+<div class="mcta"><a class="btn btn-ghost" href="../tools/vram-calculator.html">VRAM calculator</a><a class="btn btn-primary" href="../get-optimized.html">Free plan</a></div>
+<div class="cookie" id="cookie" role="dialog" aria-label="Cookie choices"><p>We use essential browser storage for site settings and, with your consent, cookies from Google to personalise and measure ads. Choose “Essential only” to receive non-personalised ads. Details in our <a href="../cookies.html">cookie policy</a>.</p>
+<div class="acts"><button class="btn btn-primary btn-sm" type="button" data-consent="all">Accept all</button><button class="btn btn-ghost btn-sm" type="button" data-consent="essential">Essential only</button></div></div>
+<script src="../assets/js/site.js" defer></script>
+</body>
+</html>
