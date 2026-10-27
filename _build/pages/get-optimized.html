@@ -1,0 +1,134 @@
+---
+title: Free LLM Optimization Plan: Cut Inference Cost | Quantization.com
+description: Get a free, vendor-neutral optimization plan for your model: the right quantization format, memory and throughput estimates for your hardware, and a quality-check method.
+crumb: Free optimization plan
+---
+<section class="section-tight" style="padding-top:30px"><div class="wrap">
+<div class="grid g2" style="gap:44px;align-items:start">
+<div>
+<h1 style="max-width:16ch">Get a free optimization plan for your model</h1>
+<p class="sub muted" style="font-size:1.15rem">Tell us what you run and where. Within two business days you get a written plan that says which quantization format to use, how much memory and money it should save, and how to prove quality held up.</p>
+<h2 style="font-size:1.15rem;margin-top:26px">Your plan includes</h2>
+<ul>
+<li><b>A format recommendation</b> — for example FP8, AWQ 4-bit or GGUF Q5_K_M — matched to your hardware and serving runtime.</li>
+<li><b>Memory and throughput estimates</b> for weights, KV cache and batch size, worked out for your context length.</li>
+<li><b>A cost comparison</b> of your current setup against the recommended one, with the assumptions written down.</li>
+<li><b>A quality-check plan</b>: which metrics and test prompts to run so you can ship with evidence, not hope.</li>
+<li><b>The exact tooling steps</b> to produce and serve the quantized model.</li>
+</ul>
+<div class="panel-sunk savings" style="margin-top:22px">
+<p class="label" style="margin:0 0 10px">Quick estimate before you start</p>
+<div class="row2">
+<div class="field"><label for="lgSpend">Monthly GPU spend (USD)</label><input id="lgSpend" data-s="spend" type="number" min="0" step="100" value="5000" inputmode="numeric"></div>
+<div class="field"><label for="lgRed">Plausible reduction</label><select id="lgRed" data-s="reduction"><option value="20">20% (cautious)</option><option value="35" selected>35% (typical 8-bit move)</option><option value="50">50% (aggressive 4-bit)</option></select></div>
+</div>
+<p style="margin:0">Could save about <b class="num" data-o="month" style="color:var(--step);font-size:1.3rem">—</b> a month (<span class="num" data-o="year">—</span> a year).</p>
+<p class="small muted" style="margin:6px 0 0">An illustration only. The plan replaces this with numbers for your workload.</p>
+</div>
+</div>
+
+<div class="panel" id="plan-form" style="box-shadow:var(--shadow)">
+<form class="js-form multistep" data-subject="Optimization plan request" data-ok="Request received. Your plan arrives within two business days — check your inbox, including the spam folder.">
+<div class="steps-ind" aria-hidden="true"><span class="on"></span><span></span><span></span></div>
+
+<div class="step active">
+<p class="step-count">Step 1 of 3</p>
+<h2 class="step-title">What do you want to achieve?</h2>
+<div class="choice-grid" data-required-group="goal">
+<label class="choice"><input type="radio" name="goal" value="Cut inference cost"><span>Cut inference cost<small>Same traffic, fewer or cheaper GPUs</small></span></label>
+<label class="choice"><input type="radio" name="goal" value="Fit on smaller hardware"><span>Fit on smaller hardware<small>Model does not fit today</small></span></label>
+<label class="choice"><input type="radio" name="goal" value="Lower latency"><span>Lower latency<small>Faster tokens per second</small></span></label>
+<label class="choice"><input type="radio" name="goal" value="On-device or edge"><span>Run on-device<small>Laptop, phone or edge box</small></span></label>
+<label class="choice"><input type="radio" name="goal" value="Fine-tune with less memory"><span>Fine-tune cheaply<small>QLoRA-style training</small></span></label>
+<label class="choice"><input type="radio" name="goal" value="Not sure yet"><span>Not sure yet<small>Help me choose</small></span></label>
+<p class="group-msg form-msg err" style="grid-column:1/-1;margin:0"></p>
+</div>
+<div class="field" style="margin-top:14px"><label for="lfModel">Which model?</label><input id="lfModel" name="model" type="text" required placeholder="e.g. Llama 3.1 70B Instruct, Qwen2.5 32B, our fine-tuned 8B"></div>
+<div class="field"><label for="lfFormat">Current precision or format</label><select id="lfFormat" name="format"><option>BF16 / FP16 (unquantized)</option><option>FP8</option><option>INT8</option><option>4-bit (GPTQ, AWQ, NF4)</option><option>GGUF</option><option>Not sure</option></select></div>
+<div class="step-nav"><span></span><button class="btn btn-primary" type="button" data-next>Continue</button></div>
+</div>
+
+<div class="step">
+<p class="step-count">Step 2 of 3</p>
+<h2 class="step-title">Where does it run?</h2>
+<div class="row2">
+<div class="field"><label for="lfHw">Hardware</label><select id="lfHw" name="hardware" required><option value="">Choose one</option><option>NVIDIA data-center GPUs (A100, H100, H200, B200)</option><option>NVIDIA workstation or consumer GPUs</option><option>AMD GPUs</option><option>Apple silicon</option><option>CPU only</option><option>Mobile or edge device</option><option>Cloud API / not decided</option></select></div>
+<div class="field"><label for="lfRt">Serving runtime</label><select id="lfRt" name="runtime"><option>vLLM</option><option>SGLang</option><option>TensorRT-LLM</option><option>Hugging Face TGI / Transformers</option><option>llama.cpp / Ollama / LM Studio</option><option>ONNX Runtime</option><option>Other or none yet</option></select></div>
+</div>
+<div class="row2">
+<div class="field"><label for="lfSpend">Monthly GPU or API spend</label><select id="lfSpend" name="monthly_spend" required><option value="">Choose a range</option><option>Under $1,000</option><option>$1,000–5,000</option><option>$5,000–25,000</option><option>$25,000–100,000</option><option>Over $100,000</option><option>Not in production yet</option></select></div>
+<div class="field"><label for="lfTime">Timeline</label><select id="lfTime" name="timeline"><option>This month</option><option>Next 1–3 months</option><option>Exploring</option></select></div>
+</div>
+<div class="row2">
+<div class="field"><label for="lfCtx">Typical context length</label><input id="lfCtx" name="context" type="text" placeholder="e.g. 8K tokens"></div>
+<div class="field"><label for="lfUsers">Peak concurrent requests</label><input id="lfUsers" name="concurrency" type="text" placeholder="e.g. 40"></div>
+</div>
+<div class="step-nav"><button class="btn btn-ghost" type="button" data-prev>Back</button><button class="btn btn-primary" type="button" data-next>Continue</button></div>
+</div>
+
+<div class="step">
+<p class="step-count">Step 3 of 3</p>
+<h2 class="step-title">Where should we send your plan?</h2>
+<div class="row2">
+<div class="field"><label for="lfName">Name</label><input id="lfName" name="name" type="text" required autocomplete="name"></div>
+<div class="field"><label for="lfEmail">Work email</label><input id="lfEmail" name="email" type="email" required autocomplete="email"></div>
+</div>
+<div class="row2">
+<div class="field"><label for="lfCo">Company (optional)</label><input id="lfCo" name="company" type="text" autocomplete="organization"></div>
+<div class="field"><label for="lfRole">Role (optional)</label><input id="lfRole" name="role" type="text" autocomplete="organization-title"></div>
+</div>
+<div class="field"><label for="lfNotes">Anything else? (optional)</label><textarea id="lfNotes" name="notes" placeholder="Latency targets, quality concerns, languages, compliance needs…"></textarea></div>
+<input type="hidden" name="est_monthly_savings"><input type="hidden" name="source" value="get-optimized">
+<input class="hp" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true">
+<label class="consent"><input type="checkbox" name="consent" value="yes" required><span>I agree that Quantization.com may contact me about this request. See the <a href="{{root}}privacy.html">privacy policy</a>.</span></label>
+<label class="consent"><input type="checkbox" name="newsletter" value="yes"><span>Also send me the weekly explainer (optional).</span></label>
+<div class="step-nav"><button class="btn btn-ghost" type="button" data-prev>Back</button><button class="btn btn-primary" type="submit">Send me my free plan</button></div>
+<div class="form-msg" role="status"></div>
+</div>
+</form>
+<p class="small muted" style="margin:14px 0 0">No sales call required. Never paste secrets, API keys or private data — we work from public model information and the details above.</p>
+</div>
+</div>
+</div></section>
+
+<section class="section"><div class="wrap grid g2" style="gap:44px;align-items:start">
+<div>
+<h2>What happens next</h2>
+<ol class="seq">
+<li><h3>You send the form</h3><p>Two minutes, no account. The more context you give, the sharper the plan.</p></li>
+<li><h3>We work out the numbers</h3><p>Formats, memory, throughput ceilings and costs for your hardware and runtime, using the same methods as our public calculators.</p></li>
+<li><h3>You get the plan by email</h3><p>Usually within two business days, as a short written document you can share with your team.</p></li>
+<li><h3>Optional hands-on help</h3><p>If you want someone to implement it, we can introduce an engineer from our network with a fixed quote up front. Entirely optional.</p></li>
+</ol>
+</div>
+<div>
+<h2>An excerpt from an example plan</h2>
+<div class="example" style="margin-top:0">
+<p class="small muted" style="margin-top:0">Illustrative example for a hypothetical team, not a client result.</p>
+<p><b>Setup:</b> Llama 3.1 70B, BF16, vLLM on 4 × 80 GB GPUs, 8K context, about 30 concurrent requests.</p>
+<p><b>Recommendation:</b> FP8 weights (W8A8) with FP8 KV cache. Weights drop from about 131 GB to about 66 GB, which fits on 2 GPUs with room for the KV cache of 30 × 8K-token sequences (about 37 GB at 8-bit).</p>
+<p><b>Quality check:</b> run your 200 most common production prompts through both versions and compare with a task-specific score and side-by-side review before switching traffic.</p>
+<p style="margin:0"><b>Expected effect:</b> half the GPUs for the same concurrency, subject to the latency test in step 4 of the plan.</p>
+</div>
+<p class="small muted">Numbers computed with the method in our <a href="{{root}}tools/vram-calculator.html">VRAM calculator</a> and <a href="{{root}}learn/kv-cache-quantization.html">KV cache guide</a>.</p>
+</div>
+</div></section>
+
+<section class="section"><div class="wrap grid g2" style="gap:44px;align-items:start">
+<div>
+<h2>Prefer to start with a cheat sheet?</h2>
+<p class="muted">The one-page reference to every formula and format on this site, ready to print. We will email it to you and add you to the weekly explainer.</p>
+<form class="js-form inline-form" data-subject="Cheat sheet request" data-reveal="cheatLink" data-ok="Done. Your cheat sheet link is below, and a copy is on its way.">
+<input type="email" name="email" required placeholder="you@example.com" aria-label="Email address"><input type="hidden" name="lead_magnet" value="Quantization cheat sheet"><input class="hp" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true"><button class="btn btn-primary" type="submit">Email me the cheat sheet</button><div class="form-msg" role="status" style="flex-basis:100%"></div>
+</form>
+<p id="cheatLink" hidden><a class="btn btn-ghost btn-sm" href="{{root}}cheat-sheet.html">Open the cheat sheet</a></p>
+</div>
+<section class="faq">
+<h2 id="faq" style="font-size:1.5rem">Questions</h2>
+<details><summary>Is the plan really free?</summary><p>Yes. It is how we learn what teams need and how some of them come to hire help later. There is no obligation and no automatic follow-up sequence.</p></details>
+<details><summary>Do you need access to our model or data?</summary><p>No. We work from public model configurations and what you tell us. Please do not send credentials, proprietary weights or customer data.</p></details>
+<details><summary>Are your recommendations tied to a vendor?</summary><p>No. We recommend whatever format and runtime fits your situation. If a recommendation ever involves a partner we earn a referral fee from, the plan says so clearly.</p></details>
+<details><summary>What if the model is a fine-tune or a custom architecture?</summary><p>Tell us the base model and what changed. Most fine-tunes quantize like their base; custom architectures may need a calibration step, which the plan will describe.</p></details>
+<details><summary>Is our request confidential?</summary><p>Yes. Details you send are used only to prepare your plan and reply to you, as described in our privacy policy.</p></details>
+</section>
+</div></section>

@@ -1,0 +1,124 @@
+---
+title: The Quantization Challenge: Fit an LLM in 8 GB | Quantization.com
+description: Join the Quantization Challenge: compress an open-weight LLM to run in 8 GB at 4K context with the least quality loss. Open scoring and sponsor-funded prizes.
+crumb: Quantization Challenge
+---
+<section class="page-head"><div class="wrap grid g2" style="gap:40px;align-items:end">
+<div>
+<span class="track track-ai">Season 1 · Fit in 8 GB</span>
+<h1 style="margin-top:10px">The Quantization Challenge</h1>
+<p class="sub">Take an open-weight language model, make it run in 8 GB of memory at a 4,096-token context, and keep as much of its quality as you can. Any method counts: GGUF, GPTQ, AWQ, mixed precision, pruning plus quantization, your own idea.</p>
+</div>
+<div class="panel">
+<div class="grid g2" style="gap:14px">
+<div><div class="muted small">Submissions close in</div><div class="countdown" data-countdown="2027-02-28T23:59:00Z">—</div></div>
+<div><div class="muted small">Entry fee</div><div class="countdown">Free</div></div>
+<div><div class="muted small">Teams</div><div>1–4 people</div></div>
+<div><div class="muted small">Prize pool</div><div>Sponsor- and supporter-funded; amounts published before submissions open</div></div>
+</div>
+<a class="btn btn-primary btn-block" href="#register" style="margin-top:16px">Register your team</a>
+</div>
+</div></section>
+
+<section class="section"><div class="wrap grid g2" style="gap:44px;align-items:start">
+<div>
+<h2>Season 1 timeline</h2>
+<ol class="seq">
+<li><h3>Registration open now</h3><p>Register to receive the starter kit: baseline scripts, the evaluation harness and the public validation prompts.</p></li>
+<li><h3>1 December 2026 — submissions open</h3><p>Prize pool and final prize split published. Leaderboard goes live with the public validation score.</p></li>
+<li><h3>28 February 2027, 23:59 UTC — submissions close</h3><p>Each team selects up to two final submissions.</p></li>
+<li><h3>March 2027 — results</h3><p>Final scores on the hidden test set, verification of winners and publication of the top write-ups.</p></li>
+</ol>
+</div>
+<div>
+<h2>How entries are scored</h2>
+<p>Every submission must pass a memory gate, then competes on quality.</p>
+<div class="table-wrap"><table><thead><tr><th>Stage</th><th>Rule</th></tr></thead><tbody>
+<tr><td>Memory gate</td><td>Peak memory, measured by the organizers' harness, at most 8.0 GiB with a 4,096-token context and batch size 1.</td></tr>
+<tr><td>Quality score (100%)</td><td>Average of task scores on the hidden test set, each divided by the same base model's BF16 score. 100 means no measurable loss.</td></tr>
+<tr><td>Tie-breakers</td><td>Lower peak memory, then earlier submission time.</td></tr>
+<tr><td>Best write-up award</td><td>Judged separately on clarity, reproducibility and insight (1–5 scale per criterion).</td></tr>
+</tbody></table></div>
+<p class="small muted">Allowed base models are listed in the starter kit and limited to openly licensed models whose licence permits modification and redistribution.</p>
+<h3 style="margin-top:22px">Planned prize structure</h3>
+<p>The pool is split <b>50%</b> first place, <b>25%</b> second, <b>15%</b> third and <b>10%</b> best write-up. Winners also get a featured case study on Quantization.com. One cash prize per team.</p>
+<p><a href="{{root}}support.html">Contribute to the prize pool</a> or <a href="#sponsor">sponsor a prize</a>.</p>
+</div>
+</div></section>
+
+<section class="section" id="register"><div class="wrap grid g2" style="gap:44px;align-items:start">
+<div class="panel">
+<h2>Register your team</h2>
+<form class="js-form" data-subject="Challenge registration" data-ok="You're registered. The starter kit and updates will come by email.">
+<div class="row2">
+<div class="field"><label for="crName">Your name</label><input id="crName" name="name" required autocomplete="name"></div>
+<div class="field"><label for="crEmail">Email</label><input id="crEmail" name="email" type="email" required autocomplete="email"></div>
+</div>
+<div class="row2">
+<div class="field"><label for="crTeam">Team name</label><input id="crTeam" name="team" required></div>
+<div class="field"><label for="crSize">Team size</label><select id="crSize" name="team_size"><option>1 (solo)</option><option>2</option><option>3</option><option>4</option></select></div>
+</div>
+<div class="row2">
+<div class="field"><label for="crCountry">Country of residence</label><input id="crCountry" name="country" required autocomplete="country-name"></div>
+<div class="field"><label for="crLevel">Experience</label><select id="crLevel" name="experience"><option>Student</option><option>Hobbyist</option><option>Professional ML engineer</option><option>Researcher</option></select></div>
+</div>
+<div class="field"><label for="crGh">GitHub or Hugging Face profile (optional)</label><input id="crGh" name="profile" type="url" placeholder="https://"></div>
+<div class="field"><label for="crPlan">Planned approach (optional)</label><textarea id="crPlan" name="approach" placeholder="e.g. imatrix-calibrated IQ4 with 8-bit attention layers"></textarea></div>
+<input class="hp" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true">
+<label class="consent"><input type="checkbox" name="age_and_rules" value="confirmed" required><span>I am at least 18 (or the age of majority where I live) and I accept the official rules below.</span></label>
+<button class="btn btn-primary" type="submit">Register</button><div class="form-msg" role="status"></div>
+</form>
+</div>
+<div>
+<h2>Official rules (summary)</h2>
+<ul>
+<li><b>No purchase necessary.</b> Entry is free. Void where prohibited or restricted by law.</li>
+<li><b>Eligibility:</b> individuals at least 18 years old or the age of majority in their place of residence. Organizers, judges, sponsors' staff working on the contest and their immediate families are not eligible for prizes. Residents of countries subject to comprehensive sanctions cannot receive prizes.</li>
+<li><b>Original work:</b> submissions must be created during the contest period by the team. Public open-source tools are allowed and must be credited. Disclose any AI tools used.</li>
+<li><b>Reproducibility:</b> include a public repository under an OSI-approved licence (MIT or Apache-2.0 recommended) with a README that reproduces the result.</li>
+<li><b>Fair play:</b> no training, tuning or calibration on the hidden test set; no manipulation of the measuring harness. One account per person.</li>
+<li><b>Verification:</b> potential winners must respond within 7 days and provide proof of identity and eligibility, and any tax forms required to pay prizes. Unclaimed prizes may go to the next eligible team.</li>
+<li><b>Ownership:</b> you keep all rights to your work. You grant Quantization.com a non-exclusive, royalty-free licence to describe, display and link to your submission and write-up.</li>
+<li><b>Changes:</b> the organizers may amend these rules or cancel the season if fairness or legality requires, with notice on this page. Decisions of the judges are final.</li>
+</ul>
+<details class="panel-sunk"><summary style="cursor:pointer;font-weight:600">Full rules, privacy and legal terms</summary>
+<p class="small" style="margin-top:12px"><b>Organizer.</b> Quantization.com. Contact through the <a href="{{root}}contact.html?topic=Challenge">contact form</a>.</p>
+<p class="small"><b>Contest type.</b> A skill-based competition; chance plays no role in selecting winners. Where local law requires registration, filings or a skill-testing question (for example for residents of Québec or elsewhere in Canada), the organizer will meet those requirements before prizes are awarded.</p>
+<p class="small"><b>Prizes.</b> Cash prizes are paid by bank transfer or another method agreed with the winner, in USD, within 60 days of verification. Winners are responsible for taxes on their prizes. Prizes are not transferable.</p>
+<p class="small"><b>Publicity.</b> Winners agree that their team name, country and submission summary may be published. Personal contact details are never published.</p>
+<p class="small"><b>Privacy.</b> Registration data is used only to run the contest and contact participants, as described in the <a href="{{root}}privacy.html">privacy policy</a>.</p>
+<p class="small"><b>Liability.</b> To the extent permitted by law, the organizer is not responsible for lost, late or corrupted submissions, or for technical failures outside its control.</p>
+<p class="small"><b>Governing law.</b> These rules are governed by the laws applicable at the organizer's place of business, without prejudice to mandatory consumer protections where you live.</p>
+</details>
+</div>
+</div></section>
+
+<section class="section" id="sponsor"><div class="wrap">
+<div class="band"><div class="band-grid">
+<div>
+<h2>Sponsor a prize</h2>
+<p>Put your company in front of the engineers who care most about efficient inference. Title, category and compute-credit sponsorships are available, each clearly credited on the challenge page, leaderboard and winner write-ups. Sponsors never influence scoring.</p>
+<p class="small">Also interested in the whole site or domain? <a href="https://web.works/contact" target="_blank" rel="noopener">Contact the owner</a>.</p>
+</div>
+<form class="js-form" data-subject="Challenge sponsorship inquiry" data-ok="Thanks. We'll reply with the sponsorship deck within two business days.">
+<div class="row2">
+<div class="field"><label for="csName">Name</label><input id="csName" name="name" required autocomplete="name"></div>
+<div class="field"><label for="csEmail">Work email</label><input id="csEmail" name="email" type="email" required autocomplete="email"></div>
+</div>
+<div class="field"><label for="csCo">Company</label><input id="csCo" name="company" required autocomplete="organization"></div>
+<div class="field"><label for="csType">Interested in</label><select id="csType" name="sponsorship"><option>Title sponsor</option><option>Category prize (e.g. best write-up)</option><option>Compute credits for participants</option><option>Hardware prize</option><option>Not sure yet</option></select></div>
+<input class="hp" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true">
+<button class="btn btn-primary" type="submit">Request the sponsorship deck</button><div class="form-msg" role="status"></div>
+</form>
+</div></div>
+</div></section>
+
+<section class="section"><div class="wrap grid g2" style="gap:44px;align-items:start">
+<div><h2>Propose a future challenge</h2><p class="muted">Ideas we are considering: an 8-bit KV-cache accuracy race, a "smallest model that passes" coding challenge, an ADC dither listening test and a music-quantize groove contest. Pitch yours.</p></div>
+<form class="js-form panel" data-subject="Challenge idea" data-ok="Thanks for the idea — we read every one.">
+<div class="field"><label for="ciIdea">Your challenge idea</label><textarea id="ciIdea" name="idea" required></textarea></div>
+<div class="field"><label for="ciEmail">Email (optional)</label><input id="ciEmail" name="email" type="email" autocomplete="email"></div>
+<input class="hp" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true">
+<button class="btn btn-ghost" type="submit">Send idea</button><div class="form-msg" role="status"></div>
+</form>
+</div></section>
