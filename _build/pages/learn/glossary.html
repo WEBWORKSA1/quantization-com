@@ -1,0 +1,389 @@
+---
+title: Quantization Glossary: 100+ Terms Explained | Quantization.com
+description: Plain-English definitions of 100+ quantization terms across AI model compression, digital audio, music production and physics, from GGUF and NF4 to dither.
+h1: Quantization glossary
+track: general
+read: 22
+summary: Concise definitions of 100+ quantization terms spanning AI model compression, audio and signal processing, music production and quantum physics.
+---
+<p class="lede">Quantization means mapping values onto a smaller set of allowed levels, and the word shows up in AI model compression, digital audio, music production and quantum physics. This glossary defines the terms you will meet in each field in plain language, with the exact numbers practitioners look for. Entries are grouped alphabetically; for side-by-side numbers on specific model formats, see the <a href="{{root}}formats.html">formats atlas</a>.</p>
+
+<h2 id="letter-a">A</h2>
+<dl class="glossary">
+<dt id="term-absmax-quantization">Absmax quantization</dt>
+<dd>A symmetric scheme that sets the scale from the largest absolute value in a tensor, row or block, so that value lands exactly on the edge of the integer range. For INT8 the scale is max|x| ÷ 127, and every other value is divided by that scale and rounded. It needs no data, but one extreme value stretches the range for everything else, which is why it is usually applied per block or per channel rather than per tensor.</dd>
+
+<dt id="term-activation-quantization">Activation quantization</dt>
+<dd>Quantizing the intermediate values that flow between layers at inference time, not just the stored weights. Activations change with every input and, in large language models, contain rare but very large <a href="#term-outliers">outliers</a>, so they are harder to compress than weights. Schemes such as <a href="#term-w8a8">W8A8</a> quantize both, which lets the matrix multiplication itself run on low-precision hardware.</dd>
+
+<dt id="term-adc">ADC (analog-to-digital converter)</dt>
+<dd>A circuit that measures a continuous voltage at regular intervals and outputs each measurement as an integer code with a fixed number of bits. Two quantizations happen at once: time is cut into samples at the <a href="#term-sample-rate">sample rate</a>, and amplitude is rounded to one of 2<sup>N</sup> levels. You can explore the trade-offs with the <a href="{{root}}tools/adc-calculator.html">ADC calculator</a>.</dd>
+
+<dt id="term-affine-quantization">Affine quantization</dt>
+<dd>Also called asymmetric quantization, it maps real values to integers with both a <a href="#term-scale-factor">scale</a> and a <a href="#term-zero-point">zero-point</a>, following r = S × (q − Z). The zero-point shifts the integer grid so that a lopsided range, such as the all-positive output of a ReLU layer, can use every available level. Real zero is still represented exactly, which keeps padding and sparse values error-free.</dd>
+
+<dt id="term-aqlm">AQLM</dt>
+<dd>Additive Quantization of Language Models, a 2024 method that represents each small group of weights as the sum of vectors chosen from several learned codebooks. The codebooks are tuned with calibration data across whole transformer blocks. It targets the extreme range around 2 bits per weight, where simpler rounding schemes lose too much accuracy.</dd>
+
+<dt id="term-audio-quantize">Audio quantize</dt>
+<dd>Snapping recorded audio, rather than MIDI notes, to the grid by moving detected transients onto the nearest grid lines. In Ableton Live this is done through <a href="#term-warp">warping</a>: the clip is time-stretched so each hit lines up, and an amount setting controls how far each one moves. The <a href="{{root}}learn/music-quantize-guide.html">music quantize guide</a> covers when to use it.</dd>
+
+<dt id="term-awq">AWQ</dt>
+<dd>Activation-aware Weight Quantization, a 2023 post-training method for compressing weights to 4 bits. It uses calibration activations to find the small fraction of weight channels that matter most, then scales those channels so rounding damages them less. It uses no backpropagation, which keeps it quick and less likely to overfit its calibration set; see <a href="{{root}}learn/gptq-vs-awq-vs-gguf.html">GPTQ vs AWQ vs GGUF</a>.</dd>
+</dl>
+
+<h2 id="letter-b">B</h2>
+<dl class="glossary">
+<dt id="term-bandwidth-bound">Bandwidth-bound</dt>
+<dd>Describes a workload whose speed is limited by how fast data moves from memory rather than by arithmetic. Generating text one token at a time is the classic case, because almost every weight must be read for each new token. Smaller weights therefore tend to speed up generation roughly in step with the bytes saved, while prompt processing, which handles many tokens at once, leans more on raw compute. See <a href="{{root}}learn/hardware-for-local-llms.html">hardware for local LLMs</a>.</dd>
+
+<dt id="term-bf16">BF16 (bfloat16)</dt>
+<dd>A 16-bit floating-point format with 1 sign bit, 8 exponent bits and 7 mantissa bits. Because it keeps the exponent width of FP32, it covers the same range of magnitudes and gives up precision instead. It is widely used for training and for publishing model weights, and most quantized models are measured against a BF16 or <a href="#term-fp16">FP16</a> original.</dd>
+
+<dt id="term-bit-depth">Bit depth</dt>
+<dd>The number of bits used for each sample in digital audio, or for each value in a numeric format. Every extra bit doubles the number of levels and, for an ideal converter, adds about 6.02 dB of signal-to-noise ratio, so 16-bit audio offers about 98 dB and 24-bit about 146 dB in theory. The <a href="{{root}}learn/audio-bit-depth-dither.html">bit depth and dither guide</a> works through the numbers.</dd>
+
+<dt id="term-bitnet-b1-58">BitNet b1.58</dt>
+<dd>A family of language models from Microsoft researchers whose weights are restricted to −1, 0 and +1. Three possible states carry log<sub>2</sub>3 ≈ 1.58 bits of information, which gives the name. The models are trained this way from the start rather than quantized afterwards, and the bitnet.cpp runtime is built to run them efficiently on ordinary CPUs.</dd>
+
+<dt id="term-bits-per-weight">Bits per weight (bpw)</dt>
+<dd>The average storage cost of one model parameter after quantization, counting scales, zero-points and other metadata as well as the integer itself. GGUF Q4_0, for example, stores 32 four-bit values plus one 16-bit scale, which is 144 bits for 32 weights, or 4.5 bpw. Whole-file averages run a little higher when some tensors are kept at higher precision; the <a href="{{root}}tools/vram-calculator.html">VRAM calculator</a> turns bpw into gigabytes.</dd>
+
+<dt id="term-block-super-block">Block and super-block</dt>
+<dd>A block is a run of consecutive weights that share one scale and sometimes a minimum or zero-point. GGUF k-quants nest small blocks of 16 or 32 weights inside 256-weight super-blocks, storing the block scales in a few bits each plus one 16-bit scale for the whole super-block. Nesting keeps the metadata overhead low while still tracking local ranges.</dd>
+
+<dt id="term-bohr-model">Bohr model</dt>
+<dd>Niels Bohr's 1913 model of the hydrogen atom, in which the electron may occupy only orbits whose angular momentum is a whole-number multiple of ħ. That one rule yields energy levels E<sub>n</sub> = −13.6 eV ÷ n<sup>2</sup> and orbit radii that grow as n<sup>2</sup>, starting at 0.0529 nm. Full quantum mechanics replaced it, but it still predicts hydrogen's spectral lines; try it in the <a href="{{root}}tools/energy-levels.html">energy levels tool</a>.</dd>
+</dl>
+
+<h2 id="letter-c">C</h2>
+<dl class="glossary">
+<dt id="term-calibration">Calibration</dt>
+<dd>Running a small sample of representative input through a model during quantization to measure the values it actually produces. Methods such as <a href="#term-gptq">GPTQ</a>, <a href="#term-awq">AWQ</a> and <a href="#term-smoothquant">SmoothQuant</a> use these statistics to set scales or to compensate for rounding error; the GPTQ paper used 128 random 2048-token segments of a web-text corpus. Calibration text that resembles real use tends to give better results.</dd>
+
+<dt id="term-canonical-quantization">Canonical quantization</dt>
+<dd>The textbook recipe for turning a classical theory into a quantum one. Position and momentum, or a field and its conjugate momentum, are promoted to operators, and their classical relationship is replaced by a commutation rule such as [x, p] = iħ. Applied to fields, the same procedure leads to quantum field theory; see <a href="{{root}}learn/quantization-in-physics.html">quantization in physics</a>.</dd>
+
+<dt id="term-clipping">Clipping</dt>
+<dd>Forcing values outside a representable range to the nearest limit. In audio, a signal that exceeds full scale is flattened at the maximum code and produces harsh distortion. In model quantization, deliberately clipping a few extreme values can lower total error because everything else gets a finer grid, so choosing the clipping range is a trade-off between rounding error and clipping error.</dd>
+
+<dt id="term-codebook">Codebook</dt>
+<dd>A table of representative values or vectors that a quantizer chooses from, so the stored data is only an index into the table. <a href="#term-vector-quantization">Vector quantization</a> methods such as llama.cpp's i-quants, AQLM and QuIP# store groups of weights as codebook indices. A well-designed codebook can capture common patterns more efficiently than rounding each weight on its own.</dd>
+</dl>
+
+<h2 id="letter-d">D</h2>
+<dl class="glossary">
+<dt id="term-dbfs">dBFS</dt>
+<dd>Decibels relative to full scale, the level scale used inside digital audio systems. 0 dBFS is the largest value the format can represent, so real signals sit at negative values. Anything that tries to exceed 0 dBFS is <a href="#term-clipping">clipped</a>.</dd>
+
+<dt id="term-dequantization">Dequantization</dt>
+<dd>Converting stored integer codes back into approximate real numbers by reversing the mapping, typically r ≈ S × (q − Z). In weight-only schemes this happens inside the matrix-multiply kernel on every forward pass. The compressed weights therefore never need to be fully expanded in memory.</dd>
+
+<dt id="term-dither">Dither</dt>
+<dd>A small amount of deliberately added random noise applied before quantization. It breaks the link between the signal and the rounding error, so the distortion that would appear on quiet signals turns into a steady, benign hiss. The most common audio form is <a href="#term-tpdf-dither">TPDF dither</a>; you can hear and see the effect in the <a href="{{root}}tools/quantization-playground.html">quantization playground</a>.</dd>
+
+<dt id="term-double-quantization">Double quantization</dt>
+<dd>A technique from QLoRA that quantizes the quantization constants themselves. With 4-bit NF4 weights in blocks of 64, storing each block's scale as a 32-bit float costs 32 ÷ 64 = 0.5 bits per weight. Quantizing those scales to 8 bits in a second pass cuts the overhead to about 0.127 bits per weight.</dd>
+
+<dt id="term-dynamic-quantization">Dynamic quantization</dt>
+<dd>Quantizing activations with scales computed on the fly from the actual values in each batch or token, rather than from fixed calibration statistics. It adapts to every input and usually needs no calibration data. The cost is a little extra runtime work to find each range; compare <a href="#term-static-quantization">static quantization</a>.</dd>
+
+<dt id="term-dynamic-range">Dynamic range</dt>
+<dd>The ratio between the largest and smallest meaningful values a system can handle, usually given in decibels. For a converter it is the gap between full scale and the noise floor. For a floating-point format it is set mainly by the exponent bits, which is why BF16 spans the same range as FP32 while FP16 does not.</dd>
+</dl>
+
+<h2 id="letter-e">E</h2>
+<dl class="glossary">
+<dt id="term-energy-level">Energy level</dt>
+<dd>One of the discrete energies a bound quantum system is allowed to have. The electron in hydrogen, for example, can sit at −13.6 eV or −3.4 eV but nowhere in between. When it moves between levels it absorbs or emits a <a href="#term-photon">photon</a> carrying exactly the energy difference.</dd>
+
+<dt id="term-enob">ENOB (effective number of bits)</dt>
+<dd>A measure of a real converter's resolution once its noise and distortion are taken into account. It is calculated as ENOB = (SINAD − 1.76 dB) ÷ 6.02 dB, where SINAD is the measured signal-to-noise-and-distortion ratio. A nominal 16-bit converter measuring 86 dB SINAD behaves like an ideal converter of about (86 − 1.76) ÷ 6.02 ≈ 14 bits.</dd>
+
+<dt id="term-exl2">EXL2</dt>
+<dd>The quantization format of the ExLlamaV2 inference library for NVIDIA GPUs. It mixes 2- to 8-bit settings within and across layers to hit any chosen average between about 2 and 8 bits per weight, using GPTQ-style optimization and measured calibration error to decide where the bits go. The project is now archived in favour of ExLlamaV3 and its EXL3 format.</dd>
+</dl>
+
+<h2 id="letter-f">F</h2>
+<dl class="glossary">
+<dt id="term-fake-quantization">Fake quantization</dt>
+<dd>Inserting a quantize-then-dequantize step into a model's forward pass so that values pick up realistic rounding error while staying in floating point. It is the core of <a href="#term-qat">quantization-aware training</a>: the network learns to tolerate the error. Gradients pass the non-differentiable rounding step through the <a href="#term-ste">straight-through estimator</a>; the technique is also called simulated quantization.</dd>
+
+<dt id="term-flashattention">FlashAttention</dt>
+<dd>An exact attention algorithm that works through attention in tiles held in fast on-chip memory, cutting traffic to the GPU's main memory. Besides speed, it matters for quantization in practice: llama.cpp requires it before the value half of the <a href="#term-kv-cache">KV cache</a> can be stored in a quantized type.</dd>
+
+<dt id="term-fp4">FP4 (E2M1)</dt>
+<dd>A 4-bit floating-point element with 1 sign bit, 2 exponent bits and 1 mantissa bit. It can represent only the magnitudes 0, 0.5, 1, 1.5, 2, 3, 4 and 6. That is why it is always paired with a shared block scale, as in <a href="#term-mxfp4">MXFP4</a> and <a href="#term-nvfp4">NVFP4</a>.</dd>
+
+<dt id="term-fp8">FP8 (E4M3 and E5M2)</dt>
+<dd>A family of 8-bit floating-point formats: E4M3 has 4 exponent and 3 mantissa bits with a maximum of 448, and E5M2 has 5 exponent and 2 mantissa bits with a maximum of 57,344. The format's proposers recommend E4M3 for weights and activations and E5M2 for gradients, which need more range. NVIDIA's Ada Lovelace, Hopper and Blackwell GPUs compute in FP8 natively; see <a href="{{root}}learn/number-formats.html">number formats</a>.</dd>
+
+<dt id="term-fp16">FP16</dt>
+<dd>The IEEE half-precision format, with 1 sign bit, 5 exponent bits and 10 mantissa bits. It is more precise than BF16, but its largest finite value is (2 − 2<sup>−10</sup>) × 2<sup>15</sup> = 65,504. Training in FP16 therefore usually needs loss scaling to stop small gradients from underflowing to zero.</dd>
+</dl>
+
+<h2 id="letter-g">G</h2>
+<dl class="glossary">
+<dt id="term-gguf">GGUF</dt>
+<dd>The single-file model format used by llama.cpp and other GGML-based tools. It stores tensors alongside typed key-value metadata such as the architecture, tokenizer and quantization type, and it is designed for fast memory-mapped loading. It succeeded the older GGML, GGMF and GGJT files; the <a href="{{root}}learn/gguf-quant-types.html">GGUF quant types guide</a> explains every suffix.</dd>
+
+<dt id="term-gptq">GPTQ</dt>
+<dd>A 2022 post-training method that quantizes a model one layer at a time, typically to 3 or 4 bits. After rounding each column of weights, it uses second-order information from calibration data to adjust the weights not yet quantized so they cancel the error just introduced. Its authors reported quantizing a 175-billion-parameter model in about four GPU hours.</dd>
+
+<dt id="term-gqa">GQA (grouped-query attention)</dt>
+<dd>An attention design in which several query heads share each key-value head. Because the <a href="#term-kv-cache">KV cache</a> stores only the shared key and value heads, it shrinks by the ratio of query heads to KV heads. Ollama's documentation notes that models with a high grouping ratio can be more sensitive to KV cache quantization.</dd>
+
+<dt id="term-grid">Grid (music)</dt>
+<dd>The set of evenly spaced time positions in a sequencer or DAW, defined by a note value such as 1/16 or 1/8 triplet. Quantizing moves notes toward the nearest grid line. The grid resolution you choose sets how fine those corrections can be.</dd>
+
+<dt id="term-groove-template">Groove template</dt>
+<dd>A timing and velocity pattern, often taken from a real performance or a classic drum machine, that can be applied to other parts in place of a rigid grid. In Ableton Live, grooves sit in the Groove Pool, where controls named Base, Quantize, Timing, Random and Velocity set how strongly the feel is imposed. Grooves can also be extracted from any clip.</dd>
+
+<dt id="term-group-size">Group size</dt>
+<dd>The number of consecutive weights that share one scale, and possibly one zero-point, in group-wise quantization. Smaller groups follow local ranges more closely and lose less accuracy, but each group adds metadata: one FP16 scale per 128 weights costs 16 ÷ 128 = 0.125 extra bits per weight, while a group of 32 costs 0.5. Group size 128 is a common choice for 4-bit GPTQ and AWQ.</dd>
+</dl>
+
+<h2 id="letter-h">H</h2>
+<dl class="glossary">
+<dt id="term-hessian">Hessian</dt>
+<dd>The matrix of second derivatives of a loss, describing how sensitive it is to changes in pairs of parameters. Quantizers such as GPTQ and QuIP# use a proxy built from calibration data, the averaged outer product of each layer's input vectors. It tells them which rounding errors matter most and how to offset them.</dd>
+
+<dt id="term-hqq">HQQ (Half-Quadratic Quantization)</dt>
+<dd>A calibration-free method that keeps the weights fixed and solves only for each group's scale and zero-point. It minimizes an error measure that is robust to outliers, using a fast closed-form solver, and its authors report processing a 70-billion-parameter model in under five minutes. It supports 8, 4, 3, 2 and 1-bit weights.</dd>
+
+<dt id="term-humanize">Humanize</dt>
+<dd>Adding small random variations to note timing or velocity so sequenced parts sound less mechanical. It works in the opposite direction to strict quantization. Ableton's Groove Pool, for example, includes a Random control for subtle timing variation.</dd>
+</dl>
+
+<h2 id="letter-i">I</h2>
+<dl class="glossary">
+<dt id="term-i-quants">i-quants</dt>
+<dd>llama.cpp's IQ family of GGUF types, from IQ1_S up to IQ4_XS, built for very low bit rates. Instead of rounding each weight onto a uniform grid, they use non-uniform value tables or codebooks of weight patterns. The smallest variants, such as IQ1_S, IQ2_XS and IQ3_XXS, cannot be produced without an <a href="#term-imatrix">importance matrix</a>.</dd>
+
+<dt id="term-imatrix">imatrix (importance matrix)</dt>
+<dd>A file of per-column statistics, built from the squared activations a model produces on calibration text, that tells llama.cpp's quantizer which weights matter most. It is generated with the <code>llama-imatrix</code> tool and passed to <code>llama-quantize</code> with <code>--imatrix</code>. It is optional for k-quants and legacy types but mandatory for the smallest i-quants; <a href="{{root}}learn/quantize-a-model.html">quantize a model</a> walks through the steps.</dd>
+
+<dt id="term-incoherence-processing">Incoherence processing</dt>
+<dd>Multiplying weight matrices by random orthogonal transforms, often randomized Hadamard transforms, so weight magnitudes are spread evenly and no single entry stands out. The rotation can be undone exactly, so the model's function is unchanged, but the rotated weights quantize with less error. QuIP# depends on it, and NVIDIA's NVFP4 training recipe uses random Hadamard transforms for the same reason.</dd>
+
+<dt id="term-input-quantize">Input quantize</dt>
+<dd>Quantizing notes as they are recorded, so they land on the grid immediately instead of being corrected afterwards. Many DAWs offer it as a recording option; Ableton Live calls it record quantization. Quantizing after recording instead keeps the original timing available if you change your mind.</dd>
+
+<dt id="term-int4-int8">INT4 and INT8</dt>
+<dd>Signed integer formats with 4 and 8 bits: INT8 covers −128 to 127 and INT4 covers −8 to 7. Each needs a scale, and possibly a zero-point, to stand for real values. Integer arithmetic is cheap in silicon, which is why INT8 inference has long been used on CPUs and mobile hardware.</dd>
+</dl>
+
+<h2 id="letter-k">K</h2>
+<dl class="glossary">
+<dt id="term-k-quants">k-quants</dt>
+<dd>The GGUF quantization types with a _K suffix, Q2_K through Q6_K, added to llama.cpp in June 2023. They use 256-weight super-blocks with quantized sub-block scales. The _S, _M and _L variants decide how many sensitive tensors are bumped up to a higher-precision type, which is why Q4_K_M files are larger than Q4_K_S files.</dd>
+
+<dt id="term-kl-divergence">KL divergence</dt>
+<dd>Kullback–Leibler divergence, a measure of how far one probability distribution is from another. For quantized language models it compares the quantized model's next-token probabilities with the original model's at every position, which catches changes that <a href="#term-perplexity">perplexity</a> can average away. llama.cpp's perplexity tool reports it with the <code>--kl-divergence</code> option.</dd>
+
+<dt id="term-kv-cache">KV cache</dt>
+<dd>The stored keys and values for every token already processed, kept so attention does not recompute them for each new token. It grows linearly with context length and batch size, holding 2 × layers × KV heads × head dimension values per token. A model with 32 layers, 8 KV heads and 128-dimensional heads stores 65,536 values per token, or 128 KiB in FP16, so long contexts add up quickly; see the <a href="{{root}}tools/vram-calculator.html">VRAM calculator</a>.</dd>
+
+<dt id="term-kv-cache-quantization">KV cache quantization</dt>
+<dd>Storing the KV cache in a lower-precision type such as 8-bit integers or FP8 to fit longer contexts or more users into the same memory. llama.cpp offers types such as q8_0 and q4_0 through <code>--cache-type-k</code> and <code>--cache-type-v</code>, and vLLM supports FP8 caches. The <a href="{{root}}learn/kv-cache-quantization.html">KV cache quantization guide</a> covers the quality trade-offs.</dd>
+</dl>
+
+<h2 id="letter-l">L</h2>
+<dl class="glossary">
+<dt id="term-llm-int8">LLM.int8()</dt>
+<dd>A 2022 method, available through the bitsandbytes library, for running large transformers with 8-bit matrix multiplication. It quantizes each row of the inputs and each column of the weights with its own scale, but splits out the few outlier feature dimensions and multiplies those in 16-bit. The result roughly halves memory while keeping accuracy close to the original.</dd>
+
+<dt id="term-lora">LoRA</dt>
+<dd>Low-Rank Adaptation, a fine-tuning method that freezes the original weights and trains small pairs of low-rank matrices added to selected layers. It reduces the number of trainable parameters by orders of magnitude. In <a href="#term-qlora">QLoRA</a> it is combined with a frozen 4-bit base model.</dd>
+
+<dt id="term-lsb">LSB (least significant bit)</dt>
+<dd>The lowest bit of a binary code, also used to mean the size of one quantization step. For an N-bit converter spanning a full-scale range FSR, one LSB equals FSR ÷ 2<sup>N</sup>; a 16-bit converter over 2 V has an LSB of about 30.5 µV. Inside its range, an ideal rounding quantizer is never wrong by more than half an LSB; see <a href="{{root}}learn/adc-quantization-error.html">ADC quantization error</a>.</dd>
+</dl>
+
+<h2 id="letter-m">M</h2>
+<dl class="glossary">
+<dt id="term-microscaling">Microscaling (MX)</dt>
+<dd>An Open Compute Project family of block formats in which every 32 elements share one 8-bit power-of-two scale, a type called E8M0. The specification defines MXFP8, MXFP6, MXFP4 and MXINT8. Each one costs its element width plus 8 ÷ 32 = 0.25 bits per value.</dd>
+
+<dt id="term-mid-rise">Mid-rise quantizer</dt>
+<dd>A uniform quantizer whose decision threshold sits at zero, so its output levels are ±½Δ, ±1½Δ and so on, with no level at zero itself. Tiny signals near zero flip between two small non-zero values instead of falling silent. Its staircase graph has a vertical riser at the origin, which gives the name.</dd>
+
+<dt id="term-mid-tread">Mid-tread quantizer</dt>
+<dd>A uniform quantizer with an output level exactly at zero, so its staircase graph has a flat tread at the origin. Inputs within half a step of zero come out as zero. With an even number of codes and one of them spent on zero, the levels cannot be perfectly symmetric, which is why INT8 spans −128 to +127.</dd>
+
+<dt id="term-midi-quantization">MIDI quantization</dt>
+<dd>Moving recorded MIDI note starts, and optionally note ends, toward the nearest grid position. DAWs let you pick the grid value, apply only part of the correction with a <a href="#term-quantize-strength">strength</a> control, and add <a href="#term-swing">swing</a> or a groove instead of strict timing. Try it in the <a href="{{root}}tools/music-quantizer.html">music quantizer</a>.</dd>
+
+<dt id="term-mixed-precision">Mixed precision</dt>
+<dd>Using different numeric precisions for different parts of a model or computation. In training it usually means 16-bit arithmetic with a 32-bit master copy of the weights. In quantization it means giving sensitive tensors more bits than the rest, as GGUF's _M variants and EXL2 do.</dd>
+
+<dt id="term-mxfp4">MXFP4</dt>
+<dd>The 4-bit member of the <a href="#term-microscaling">microscaling</a> family: 32 FP4 (E2M1) values share one 8-bit power-of-two scale, for 4.25 bits per value. OpenAI published the mixture-of-experts weights of its gpt-oss models in this format. llama.cpp, vLLM and TensorRT-LLM can all run it.</dd>
+</dl>
+
+<h2 id="letter-n">N</h2>
+<dl class="glossary">
+<dt id="term-nf4">NF4 (4-bit NormalFloat)</dt>
+<dd>A 4-bit data type introduced with QLoRA. Its 16 levels sit at quantiles of a normal distribution, matching how pretrained weights are usually spread, and include an exact zero. Each block of 64 weights is divided by its absolute maximum before lookup, and the bitsandbytes library provides the implementation.</dd>
+
+<dt id="term-noise-shaping">Noise shaping</dt>
+<dd>Filtering quantization error so its energy moves toward frequencies where it matters less, such as above the audible band. Total noise power can rise, but the noise inside the band you care about falls. Sigma-delta converters rely on it together with <a href="#term-oversampling">oversampling</a>.</dd>
+
+<dt id="term-nvfp4">NVFP4</dt>
+<dd>NVIDIA's 4-bit floating-point format for its Blackwell GPUs. It stores E2M1 values in blocks of 16, each with an FP8 E4M3 scale, plus one FP32 scale per tensor. That works out to about 4.5 bits per value and allows finer scaling than MXFP4's power-of-two scales.</dd>
+
+<dt id="term-nyquist-frequency">Nyquist frequency</dt>
+<dd>Half the sample rate, and the highest frequency a sampled signal can represent without aliasing. CD audio sampled at 44.1 kHz has a Nyquist frequency of 22.05 kHz. That sits just above the 20 kHz figure commonly given as the upper limit of human hearing.</dd>
+</dl>
+
+<h2 id="letter-o">O</h2>
+<dl class="glossary">
+<dt id="term-outliers">Outliers</dt>
+<dd>Rare values far larger than the rest of a tensor. In large language models some activation channels carry very large magnitudes consistently, and a single outlier forces a wide range that leaves too few levels for everything else. LLM.int8(), SmoothQuant and AWQ each tackle this problem in a different way.</dd>
+
+<dt id="term-oversampling">Oversampling</dt>
+<dd>Sampling faster than the signal strictly requires, then filtering and decimating. Because quantization noise spreads across a wider band, filtering down to the band of interest improves SNR by 10·log<sub>10</sub>(f<sub>s</sub> ÷ 2·BW) dB. That is about 3 dB, or half a bit, for every doubling of the sample rate.</dd>
+</dl>
+
+<h2 id="letter-p">P</h2>
+<dl class="glossary">
+<dt id="term-particle-in-a-box">Particle in a box</dt>
+<dd>The simplest quantum system: a particle trapped between two impenetrable walls a distance L apart. Only standing waves fit, so the allowed energies are E<sub>n</sub> = n<sup>2</sup>h<sup>2</sup> ÷ (8mL<sup>2</sup>) for n = 1, 2, 3 and so on. The lowest energy is above zero, so a confined particle is never completely at rest; the <a href="{{root}}tools/energy-levels.html">energy levels tool</a> plots the ladder.</dd>
+
+<dt id="term-per-channel-quantization">Per-channel quantization</dt>
+<dd>Giving each output channel, or each row of a weight matrix, its own scale and possibly its own zero-point. It handles large differences between channels much better than one scale for the whole tensor, for very little extra storage. It is a common choice for INT8 weights.</dd>
+
+<dt id="term-per-tensor-quantization">Per-tensor quantization</dt>
+<dd>Using a single scale, and possibly a single zero-point, for an entire tensor. It is the cheapest option and works when values are evenly spread. One outlier anywhere in the tensor, however, enlarges the step size for every value.</dd>
+
+<dt id="term-perplexity">Perplexity</dt>
+<dd>A standard measure of how well a language model predicts text: the exponential of the average negative log-probability it gives to each actual next token. Lower is better. The increase in perplexity after quantization, often written ΔPPL, is a quick way to compare formats on the same model and test text.</dd>
+
+<dt id="term-photon">Photon</dt>
+<dd>The quantum of electromagnetic radiation. A photon of frequency f carries energy E = hf = hc ÷ λ. Light is therefore absorbed and emitted in these discrete packets rather than in arbitrary amounts.</dd>
+
+<dt id="term-planck-constant">Planck constant</dt>
+<dd>The fundamental constant h that links a quantum's energy to its frequency. Since the SI revision adopted in 2018 it has been fixed exactly at 6.626 070 15 × 10<sup>−34</sup> J s. The reduced constant ħ = h ÷ 2π appears throughout quantum mechanics.</dd>
+
+<dt id="term-ptq">PTQ (post-training quantization)</dt>
+<dd>Converting an already trained model to lower precision without retraining it. Approaches range from plain <a href="#term-round-to-nearest">round-to-nearest</a> to calibration-based methods such as GPTQ and AWQ. It is usually enough for 8-bit with little accuracy loss; see <a href="{{root}}learn/ptq-vs-qat.html">PTQ vs QAT</a>.</dd>
+</dl>
+
+<h2 id="letter-q">Q</h2>
+<dl class="glossary">
+<dt id="term-qat">QAT (quantization-aware training)</dt>
+<dd>Training or fine-tuning a model with <a href="#term-fake-quantization">fake quantization</a> in the forward pass so it learns weights that survive rounding. It costs training compute and data. In return it usually holds accuracy better than PTQ at very low bit widths.</dd>
+
+<dt id="term-qlora">QLoRA</dt>
+<dd>A 2023 fine-tuning method that keeps a frozen base model in 4-bit <a href="#term-nf4">NF4</a> and trains <a href="#term-lora">LoRA</a> adapters on top, with gradients flowing through the quantized weights. It also introduced double quantization and paged optimizers. Its authors fine-tuned a 65-billion-parameter model on a single 48 GB GPU.</dd>
+
+<dt id="term-quantization">Quantization</dt>
+<dd>Mapping values from a large or continuous set onto a smaller, discrete set. The same idea appears in digital audio (rounding samples to levels), AI model compression (storing weights in fewer bits), music production (snapping notes to a grid) and physics (quantities that take only discrete values). Start with <a href="{{root}}learn/what-is-quantization.html">what is quantization</a> for the full picture.</dd>
+
+<dt id="term-quantization-error">Quantization error</dt>
+<dd>The difference between an original value and its quantized version. With a uniform step Δ and rounding, the error stays within ±Δ ÷ 2 for values inside the range. Values outside the range are clipped and can carry much larger errors.</dd>
+
+<dt id="term-quantization-noise">Quantization noise</dt>
+<dd>Quantization error treated as a random signal. For a busy signal and a uniform step q, it behaves like white noise with an rms value of q ÷ √12. That result underlies the 6.02N + 1.76 dB rule for an ideal N-bit converter, explained in <a href="{{root}}learn/adc-quantization-error.html">ADC quantization error</a>.</dd>
+
+<dt id="term-quantize-strength">Quantize strength</dt>
+<dd>A control that moves notes only part of the way toward the grid. At 100% notes land exactly on grid lines, at 0% they stay where they were played, and values in between tighten timing while keeping some of the original feel. Logic Pro calls it Q-Strength, and Ableton Live calls it Amount.</dd>
+
+<dt id="term-quantum">Quantum</dt>
+<dd>The smallest discrete amount of a physical quantity that can be exchanged in a given process. Max Planck introduced energy quanta in 1900 to explain thermal radiation. The broader idea that quantities such as energy, angular momentum and charge come in discrete steps became the foundation of quantum mechanics.</dd>
+
+<dt id="term-quantum-number">Quantum number</dt>
+<dd>A whole-number or half-integer label that identifies an allowed state of a quantum system. The hydrogen electron is described by the principal number n (1, 2, 3 …), the orbital number l (0 to n − 1), the magnetic number m (−l to +l) and a spin number. Together they fix which state the electron occupies.</dd>
+
+<dt id="term-quip-sharp">QuIP#</dt>
+<dd>A 2024 weight-only method for 2 to 4 bits per weight. It first applies randomized Hadamard transforms to make weights incoherent, then quantizes groups of eight using a codebook built on the 8-dimensional E8 lattice, optionally followed by fine-tuning. Its authors have since released a successor called QTIP.</dd>
+</dl>
+
+<h2 id="letter-r">R</h2>
+<dl class="glossary">
+<dt id="term-round-to-nearest">Round-to-nearest (RTN)</dt>
+<dd>The simplest quantizer: divide each value by the scale and round to the nearest representable level. It needs no data and runs almost instantly. It is the baseline that calibration-based methods such as GPTQ and AWQ aim to beat at 4 bits and below.</dd>
+</dl>
+
+<h2 id="letter-s">S</h2>
+<dl class="glossary">
+<dt id="term-sample-rate">Sample rate</dt>
+<dd>How many samples per second a digital system records, measured in hertz. It sets the highest frequency that can be captured, the <a href="#term-nyquist-frequency">Nyquist frequency</a>, at half the sample rate. 44.1 kHz and 48 kHz are the standard rates for audio.</dd>
+
+<dt id="term-scale-factor">Scale factor</dt>
+<dd>The number that converts between real values and integer codes: the real value is roughly the scale times the code, after subtracting any zero-point. A larger scale covers a wider range with coarser steps. Choosing scales well, per tensor, per channel or per group, is the heart of most quantization schemes.</dd>
+
+<dt id="term-smoothquant">SmoothQuant</dt>
+<dd>A 2022 training-free method for running both weights and activations in 8 bits. It divides each activation channel by a smoothing factor and multiplies the matching weights by the same factor, so outliers move from the hard-to-quantize activations into the easier weights. The layer's output is mathematically unchanged.</dd>
+
+<dt id="term-sqnr">SQNR (signal-to-quantization-noise ratio)</dt>
+<dd>The power of a signal divided by the power of the error introduced by quantizing it, usually in decibels. For a full-scale sine wave and an ideal N-bit quantizer it equals 6.02N + 1.76 dB, so each extra bit adds about 6 dB. The <a href="{{root}}tools/quantization-playground.html">quantization playground</a> shows SQNR change as you vary the bit depth.</dd>
+
+<dt id="term-static-quantization">Static quantization</dt>
+<dd>Quantizing activations with scales fixed ahead of time from calibration data, rather than computed for each input. It avoids runtime range-finding and suits integer-only hardware. Scales that do not match real inputs, however, cost accuracy; compare <a href="#term-dynamic-quantization">dynamic quantization</a>.</dd>
+
+<dt id="term-ste">STE (straight-through estimator)</dt>
+<dd>A trick for training through a rounding step, whose true gradient is zero almost everywhere. In the backward pass the rounding is treated as if it were the identity function, so gradients flow straight through to the underlying floating-point weights. It is what makes quantization-aware training workable.</dd>
+
+<dt id="term-stochastic-rounding">Stochastic rounding</dt>
+<dd>Rounding up or down at random, with probabilities set by how close the value is to each neighbour, so the expected result equals the original value. It stops small updates from always rounding away to nothing. It is used in low-precision training, including NVIDIA's NVFP4 pretraining recipe.</dd>
+
+<dt id="term-swing">Swing</dt>
+<dd>A timing feel in which every second subdivision is delayed, so pairs of notes alternate long and short. In Logic Pro's Q-Swing control, 50% is straight timing and higher values push the off-beat notes later. You can hear the effect in the <a href="{{root}}tools/music-quantizer.html">music quantizer</a>.</dd>
+
+<dt id="term-symmetric-quantization">Symmetric quantization</dt>
+<dd>Quantization with the zero-point fixed at zero, so the integer range is centred on zero and real zero maps to code 0. It suits roughly zero-centred data such as weights. It also simplifies the arithmetic, because no offset has to be subtracted.</dd>
+</dl>
+
+<h2 id="letter-t">T</h2>
+<dl class="glossary">
+<dt id="term-ternary-weights">Ternary weights</dt>
+<dd>Weights limited to three values, usually −1, 0 and +1 times a scale. Multiplying by them reduces to adding, subtracting or skipping, and each carries log<sub>2</sub>3 ≈ 1.58 bits of information. <a href="#term-bitnet-b1-58">BitNet b1.58</a> is the best-known example, and llama.cpp has TQ1_0 and TQ2_0 types for such models.</dd>
+
+<dt id="term-tpdf-dither">TPDF dither</dt>
+<dd>Dither with a triangular probability distribution spanning 2 LSB peak to peak, usually made by adding two independent uniform random values. It makes both the average and the power of the quantization error independent of the signal, which removes distortion and noise modulation. The price is about three times the undithered noise power, roughly 4.8 dB.</dd>
+
+<dt id="term-triplet">Triplet</dt>
+<dd>Three equal notes played in the time normally taken by two of the same value. A triplet grid such as 1/8T divides each beat into three. Shuffled or compound-feel parts usually need such a grid, because a straight grid would pull their notes to the wrong positions.</dd>
+</dl>
+
+<h2 id="letter-v">V</h2>
+<dl class="glossary">
+<dt id="term-vector-quantization">Vector quantization</dt>
+<dd>Quantizing groups of values together by replacing each group with the index of the closest entry in a <a href="#term-codebook">codebook</a>, rather than rounding each value separately. Because a codebook can match the joint shape of the data, it can reach lower bit rates for the same error. AQLM, QuIP# and llama.cpp's i-quants all rely on it.</dd>
+</dl>
+
+<h2 id="letter-w">W</h2>
+<dl class="glossary">
+<dt id="term-w4a16">W4A16</dt>
+<dd>Shorthand for 4-bit weights with 16-bit activations. Weights are stored compactly and dequantized inside the kernel while the arithmetic runs in FP16 or BF16. Typical GPTQ and AWQ deployments fall into this weight-only category.</dd>
+
+<dt id="term-w8a8">W8A8</dt>
+<dd>Shorthand for 8-bit weights and 8-bit activations, in either INT8 or FP8. Because both operands are low precision, the matrix multiplication itself can run on 8-bit hardware units, which helps compute-heavy serving as well as memory use. SmoothQuant INT8 and FP8 serving are typical examples.</dd>
+
+<dt id="term-warp">Warp</dt>
+<dd>Time-stretching audio so its timing follows a tempo or grid without changing pitch. In Ableton Live, warp markers pin chosen points in a sample, such as drum hits, to positions on the timeline, and the audio between them is stretched or squeezed to fit. Different warp modes suit drums, tonal parts, textures and full mixes.</dd>
+
+<dt id="term-weight-only-quantization">Weight-only quantization</dt>
+<dd>Compressing only a model's stored weights while activations stay in 16-bit. It mainly saves memory and speeds up <a href="#term-bandwidth-bound">bandwidth-bound</a> text generation. GPTQ, AWQ and NF4 models are run this way; the <a href="{{root}}learn/llm-quantization-guide.html">LLM quantization guide</a> compares the options.</dd>
+</dl>
+
+<h2 id="letter-z">Z</h2>
+<dl class="glossary">
+<dt id="term-zero-point">Zero-point</dt>
+<dd>The integer code that stands for real zero in <a href="#term-affine-quantization">affine quantization</a>. It lets a lopsided range use every level while guaranteeing that zero itself is stored without error, which matters for padding and sparse values. In symmetric schemes it is fixed at 0.</dd>
+
+<dt id="term-zero-point-energy">Zero-point energy</dt>
+<dd>The lowest possible energy of a quantum system, which sits above the classical minimum. For a quantum harmonic oscillator the levels are (n + ½)ħω, so even the ground state keeps ħω ÷ 2. The uncertainty principle forbids a particle resting perfectly still at the bottom of the well.</dd>
+</dl>
+
+<section class="sources"><h2 id="sources">Sources and further reading</h2><ol>
+<li><a href="https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md" rel="noopener" target="_blank">llama.cpp: quantize tool README</a> — GGUF quantization types, imatrix options and measured bits per weight.</li>
+<li><a href="https://arxiv.org/abs/2210.17323" rel="noopener" target="_blank">Frantar et al., GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers</a> — the layer-wise, second-order PTQ method.</li>
+<li><a href="https://arxiv.org/abs/2305.14314" rel="noopener" target="_blank">Dettmers et al., QLoRA: Efficient Finetuning of Quantized LLMs</a> — introduces NF4 and double quantization.</li>
+<li><a href="https://arxiv.org/abs/2209.05433" rel="noopener" target="_blank">Micikevicius et al., FP8 Formats for Deep Learning</a> — defines the E4M3 and E5M2 encodings.</li>
+<li><a href="https://www.analog.com/media/en/training-seminars/tutorials/MT-001.pdf" rel="noopener" target="_blank">Analog Devices MT-001: the 6.02N + 1.76 dB formula</a> — quantization noise, SNR and oversampling gain for ideal converters.</li>
+<li><a href="https://aes.org/publications/elibrary/elibrary-page/?id=7047" rel="noopener" target="_blank">Lipshitz, Wannamaker and Vanderkooy, Quantization and Dither: A Theoretical Survey (J. AES, 1992)</a> — the case for TPDF dither.</li>
+<li><a href="https://www.ableton.com/en/manual/using-grooves/" rel="noopener" target="_blank">Ableton Live manual: Using Grooves</a> — groove templates, quantize amount and timing controls.</li>
+<li><a href="https://openstax.org/books/university-physics-volume-3/pages/6-4-bohrs-model-of-the-hydrogen-atom" rel="noopener" target="_blank">OpenStax University Physics Volume 3: Bohr's Model of the Hydrogen Atom</a> — quantized energy levels, radii and angular momentum.</li>
+</ol></section>
