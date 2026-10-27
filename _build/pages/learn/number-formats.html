@@ -1,0 +1,119 @@
+---
+title: AI number formats: BF16, FP8, NF4, MXFP4 | Quantization.com
+description: FP32, TF32, FP16, BF16, INT8, INT4, FP8 E4M3/E5M2, NF4, MXFP4 and NVFP4 explained: bit layouts, range vs precision, and the hardware that runs them.
+h1: Number formats for AI: from FP32 to FP8, NF4, MXFP4 and ternary
+track: ai
+read: 10
+summary: Bit layouts, range and precision of FP32, BF16, FP16, FP8, INT8/INT4, NF4, MX formats, NVFP4 and 1.58-bit ternary, plus which hardware runs them.
+---
+<p class="lede">Every AI number format spends a fixed bit budget on a sign, an exponent that sets range, and a mantissa that sets precision. FP32 and BF16 cover huge ranges, FP16 trades range for precision, FP8 and FP4 squeeze both, and integer and block-scaled formats such as INT4, NF4, MXFP4 and NVFP4 rely on shared scale factors to make tiny codes usable. Here are the exact layouts, limits and typical uses of each.</p>
+
+<h2 id="anatomy">How bits become numbers</h2>
+<p>A floating-point value is stored as sign, exponent and mantissa (also called significand or fraction). For normal numbers the value is:</p>
+<div class="formula">x = (−1)<sup>sign</sup> × 2<sup>exponent − bias</sup> × (1 + mantissa / 2<sup>m</sup>)</div>
+<p class="formula-note">m is the number of mantissa bits; the bias centres the exponent range on zero. Formats are named ExMy for x exponent bits and y mantissa bits.</p>
+<p>Exponent bits buy <strong>range</strong>: each extra bit roughly doubles the number of powers of two you can reach. Mantissa bits buy <strong>precision</strong>: with m bits, neighbouring values differ by up to 2<sup>−m</sup> relative to their size (2<sup>−10</sup> ≈ 0.001 for FP16, 2<sup>−3</sup> = 0.125 for FP8 E4M3). The largest value follows from the top usable exponent: for FP16, (2 − 2<sup>−10</sup>) × 2<sup>15</sup> = 65,504.</p>
+<p>Integers work differently. An INT8 code is a whole number from −128 to 127, and INT4 runs from −8 to 7. They represent real values only through a <strong>scale</strong> (and optionally a zero-point): real value ≈ scale × code. The steps are perfectly even, but one scale must cover the largest value in its group, which is why integer formats always come with a granularity: per-tensor, per-channel or per-block. Try it in the <a href="{{root}}tools/quantization-playground.html">quantization playground</a>.</p>
+
+<h2 id="training-formats">FP32, TF32, FP16 and BF16</h2>
+<p><strong>FP32</strong> (IEEE single precision, 1-8-23) is the reference: about 7 significant decimal digits and a normal range of roughly 1.2 × 10<sup>−38</sup> to 3.4 × 10<sup>38</sup>. Optimiser states and master weights usually stay in FP32.</p>
+<p><strong>FP16</strong> (IEEE half precision, 1-5-10) halves memory and keeps 10 mantissa bits, but its 5-bit exponent caps values at 65,504 with a smallest normal of 2<sup>−14</sup> ≈ 6.1 × 10<sup>−5</sup>. Small gradients underflow, so the mixed-precision recipe of Micikevicius et al. (2017) scales the loss up and keeps an FP32 master copy of the weights.</p>
+<p><strong>BF16</strong> (bfloat16, 1-8-7) keeps FP32's 8-bit exponent and cuts the mantissa to 7 bits. It covers essentially the same range as FP32 with much coarser steps (2<sup>−7</sup> ≈ 0.0078 relative). Converting from FP32 amounts to rounding away the low 16 bits, and a study by Intel and Facebook researchers found BF16 training matched FP32 results across vision, speech, language and recommendation workloads without hyperparameter changes. Google's TPUs multiply in BF16 and accumulate in FP32 by default.</p>
+<p><strong>TF32</strong> (TensorFloat-32) is a compute mode, not a storage format. Introduced with NVIDIA's Ampere A100, it takes FP32 inputs, rounds the mantissa to 10 bits, keeps the 8-bit exponent and accumulates in FP32: 19 meaningful bits inside a 32-bit container. PyTorch's documentation notes TF32 matmuls on A100 run roughly 7× faster with relative error about two orders of magnitude larger than FP32; its TF32 matmul flag has been off by default since version 1.12.</p>
+<aside class="note"><p>Rule of thumb: BF16 is the usual choice for training and serving large models because it rarely overflows. FP16 has finer steps but needs care with range.</p></aside>
+
+<div data-cta="lead"></div>
+
+<h2 id="fp8">FP8: E4M3 vs E5M2</h2>
+<p>FP8 was proposed by researchers from NVIDIA, Arm and Intel (Micikevicius et al., 2022) and later standardised in the OCP 8-bit floating point (OFP8) specification. Both define the same two encodings:</p>
+<ul>
+<li><strong>E4M3</strong> (1-4-3, bias 7): drops infinities and reserves a single mantissa pattern for NaN, which frees the top exponent for ordinary values. Maximum magnitude 448; smallest normal 2<sup>−6</sup>; smallest subnormal 2<sup>−9</sup>.</li>
+<li><strong>E5M2</strong> (1-5-2, bias 15): follows IEEE conventions, with infinities and NaNs. Maximum magnitude 57,344; smallest normal 2<sup>−14</sup>; smallest subnormal 2<sup>−16</sup>. Roughly FP16's range with only 2 mantissa bits.</li>
+</ul>
+<p>The paper recommends E4M3 for weights and activations and E5M2 for gradients, which need range more than precision. NVIDIA's Transformer Engine calls this the hybrid format: E4M3 forward, E5M2 backward. Inference uses E4M3. E4M3 spans only about 15 powers of two between its smallest normal and largest value (BF16 spans about 254), so every FP8 tensor needs a scale factor, typically chosen from recent absolute maxima ("amax").</p>
+<div class="example"><h3>Worked example: why FP8 needs scaling</h3>
+<p>Activations up to 1,200 overflow E4M3 (max 448). Dividing by a per-tensor scale of 4 stores at most 300, which fits. Values near 300 sit in the binade from 256 to 512, where 3 mantissa bits give a step of 256 × 2<sup>−3</sup> = 32, or 128 in original units after rescaling. That is about 11% of 1,200; the worst-case rounding error is half a step.</p></div>
+
+<h2 id="block-scaled">Four bits and below: NF4, MX, NVFP4 and ternary</h2>
+<p>With only 16 codes, where the codes sit and how often the scale changes matter most.</p>
+<h3>NF4 (4-bit NormalFloat)</h3>
+<p>NF4, introduced with QLoRA (Dettmers et al., 2023), places its 16 levels at quantiles of a standard normal distribution, normalised to [−1, 1], because trained weights are roughly normal. It is asymmetric so that zero is exact: seven negative levels, zero and eight positive levels, running from −1.0 through −0.6962 and 0.0796 up to 1.0. Each 64-weight block is scaled by its absolute maximum. A 32-bit scale per block adds 32 ÷ 64 = 0.5 bits per weight; QLoRA's double quantization stores the scales in 8 bits, cutting that to 8/64 + 32/(64 × 256) ≈ 0.127 bits. NF4 is a storage format, dequantized to BF16 for compute.</p>
+<h3>Microscaling (MX) formats</h3>
+<p>The OCP Microscaling (MX) specification v1.0 (September 2023, from AMD, Arm, Intel, Meta, Microsoft, NVIDIA and Qualcomm) defines formats in which every block of <strong>32 elements</strong> shares one <strong>8-bit power-of-two scale</strong> stored as E8M0: an exponent with bias 127, no mantissa, and the all-ones code reserved for NaN. The concrete formats:</p>
+<ul>
+<li><strong>MXFP8</strong>: E4M3 or E5M2 elements (max 448 or 57,344).</li>
+<li><strong>MXFP6</strong>: E2M3 (max 7.5) or E3M2 (max 28) elements, with no Inf or NaN encodings.</li>
+<li><strong>MXFP4</strong>: E2M1 elements, whose positive values are 0, 0.5, 1, 1.5, 2, 3, 4 and 6, with no Inf or NaN.</li>
+<li><strong>MXINT8</strong>: 8-bit two's-complement elements with an implied scale of 2<sup>−6</sup>, so the maximum is 127/64 = 1.984375.</li>
+</ul>
+<p>The shared scale costs 8 ÷ 32 = 0.25 bits per element, so MXFP4 averages 4.25 bits per value. The spec's reference conversion takes the largest power of two not above the block's maximum magnitude and divides it by the element type's largest power of two.</p>
+<div class="example"><h3>Worked example: one MXFP4 block</h3>
+<p>Suppose a block's largest magnitude is 0.7. The largest power of two not above 0.7 is 0.5, and E2M1's is 4, so the shared scale is 0.5 ÷ 4 = 2<sup>−3</sup> = 0.125. Then 0.7 / 0.125 = 5.6 rounds to 6 and decodes to 0.75, while 0.1 / 0.125 = 0.8 rounds to 1 and decodes to 0.125. Coarse, but the scale costs only 8 bits for all 32 values.</p></div>
+<h3>NVFP4</h3>
+<p>NVFP4, introduced with NVIDIA's Blackwell architecture, also uses E2M1 elements but scales differently: blocks of <strong>16</strong> values share an <strong>FP8 E4M3</strong> scale, and one FP32 scale per tensor keeps the block scales within E4M3's range. A non-power-of-two scale fits each block's maximum more tightly than E8M0, and smaller blocks adapt to local outliers. Overhead is 8 ÷ 16 = 0.5 bits, about 4.5 bits per value in total.</p>
+<h3>Ternary and 1.58-bit weights</h3>
+<p>BitNet b1.58 (Ma et al., 2024) restricts every weight to {−1, 0, +1}. Three states carry log<sub>2</sub>(3) ≈ 1.58 bits of information, hence the name. Weights are divided by their mean absolute value and rounded to the nearest level; activations use 8 bits with per-token scaling. Crucially, the model is trained this way from scratch, not quantized afterwards. The paper reports matching a full-precision LLaMA baseline in perplexity from 3B parameters, and a follow-up released BitNet b1.58 2B4T, an open-weight 2B-parameter model trained on about 4 trillion tokens. Ternary weights make matrix multiplication almost multiplication-free, which is why the authors call for dedicated hardware. Five ternary values can be packed into one byte (3<sup>5</sup> = 243 ≤ 256), or 1.6 bits per weight.</p>
+
+<h2 id="reference-table">Format reference table</h2>
+<div class="table-wrap"><table>
+<caption>Block formats show element limits; the shared scale sets the actual range.</caption>
+<thead><tr><th>Format</th><th>Bits (sign-exp-mantissa)</th><th>Largest value</th><th>Smallest normal or nonzero</th><th>Relative step</th><th>Typical use</th></tr></thead>
+<tbody>
+<tr><td>FP32</td><td>1-8-23</td><td>≈3.4 × 10<sup>38</sup></td><td>≈1.2 × 10<sup>−38</sup></td><td>2<sup>−23</sup></td><td>Master weights, optimiser state, reference</td></tr>
+<tr><td>TF32</td><td>1-8-10 (19 of 32 bits)</td><td>≈3.4 × 10<sup>38</sup></td><td>≈1.2 × 10<sup>−38</sup></td><td>2<sup>−10</sup></td><td>Tensor-core math on FP32 inputs</td></tr>
+<tr><td>BF16</td><td>1-8-7</td><td>≈3.4 × 10<sup>38</sup></td><td>≈1.2 × 10<sup>−38</sup></td><td>2<sup>−7</sup></td><td>Training and serving LLMs</td></tr>
+<tr><td>FP16</td><td>1-5-10</td><td>65,504</td><td>≈6.1 × 10<sup>−5</sup></td><td>2<sup>−10</sup></td><td>Inference, mixed precision with loss scaling</td></tr>
+<tr><td>FP8 E4M3</td><td>1-4-3</td><td>448</td><td>2<sup>−6</sup></td><td>2<sup>−3</sup></td><td>Weights and activations; inference</td></tr>
+<tr><td>FP8 E5M2</td><td>1-5-2</td><td>57,344</td><td>2<sup>−14</sup></td><td>2<sup>−2</sup></td><td>Gradients in FP8 training</td></tr>
+<tr><td>INT8</td><td>8-bit integer</td><td>127 × scale</td><td>1 × scale (uniform)</td><td>Uniform steps</td><td>Weights and activations, edge and server inference</td></tr>
+<tr><td>INT4</td><td>4-bit integer</td><td>7 × scale</td><td>1 × scale (uniform)</td><td>Uniform steps</td><td>Weight-only LLM quantization (GPTQ, AWQ)</td></tr>
+<tr><td>NF4</td><td>16 normal quantiles</td><td>1.0 × block absmax</td><td>≈0.08 × absmax</td><td>Non-uniform</td><td>QLoRA base weights</td></tr>
+<tr><td>MXFP6</td><td>E2M3 or E3M2 + E8M0 per 32</td><td>7.5 or 28 × scale</td><td>1 or 0.25 × scale</td><td>2<sup>−3</sup> or 2<sup>−2</sup></td><td>Low-precision training and inference</td></tr>
+<tr><td>MXFP4</td><td>1-2-1 + E8M0 per 32</td><td>6 × scale</td><td>1 × scale</td><td>2<sup>−1</sup></td><td>4-bit weights and activations</td></tr>
+<tr><td>NVFP4</td><td>1-2-1 + E4M3 per 16 + FP32 per tensor</td><td>6 × scales</td><td>1 × scales</td><td>2<sup>−1</sup></td><td>4-bit inference and training on Blackwell</td></tr>
+<tr><td>Ternary</td><td>{−1, 0, +1}</td><td>1 × scale</td><td>1 × scale</td><td>—</td><td>Natively trained 1.58-bit LLMs</td></tr>
+</tbody></table></div>
+<p>For GGUF block types and more, see the <a href="{{root}}formats.html">formats atlas</a>.</p>
+
+<h2 id="hardware-support">Hardware support by generation</h2>
+<p>A format speeds up compute only when the hardware has native instructions for it; otherwise it saves memory but is widened for the arithmetic. Key milestones:</p>
+<ul>
+<li><strong>NVIDIA Volta (V100)</strong>: first Tensor Cores, FP16 inputs with FP32 accumulation.</li>
+<li><strong>NVIDIA Ampere (A100)</strong>: introduces TF32 and supports BF16 alongside FP16 and INT8.</li>
+<li><strong>NVIDIA Hopper (H100) and Ada Lovelace</strong>: FP8 E4M3 and E5M2. NVIDIA introduced FP8 with H100; vLLM lists FP8 compute for compute capability 8.9 and above, which includes Ada.</li>
+<li><strong>NVIDIA Blackwell</strong>: adds NVFP4 and MXFP8; Blackwell Ultra's Tensor Cores are described as optimised for FP8, FP6 and NVFP4.</li>
+<li><strong>AMD Instinct MI300 (CDNA 3)</strong>: FP8, BF16, FP16 and INT8 matrix math. <strong>MI350 (CDNA 4)</strong> adds MXFP8, MXFP6 and MXFP4.</li>
+<li><strong>Google TPUs</strong>: BF16 multiplication with FP32 accumulation by default.</li>
+</ul>
+<aside class="warn"><p>"Supported" can mean storage only. NF4 and most GGUF block types are unpacked to 16-bit inside the kernel: they save memory and bandwidth but do not use 4-bit arithmetic units. The <a href="{{root}}tools/vram-calculator.html">VRAM calculator</a> shows the memory side.</p></aside>
+
+<div data-cta="tool" data-tool="quantization-playground"></div>
+
+<div class="takeaways"><h2 id="takeaways">Key takeaways</h2><ul>
+<li>Exponent bits set range, mantissa bits set precision; BF16 keeps FP32's range, FP16 keeps more precision.</li>
+<li>FP8 E4M3 tops out at 448 and suits weights and activations; E5M2 reaches 57,344 and suits gradients.</li>
+<li>Integer and 4-bit formats only work with scales, and finer scaling granularity costs extra bits per value.</li>
+<li>MX formats share an 8-bit power-of-two scale per 32 elements; NVFP4 uses an E4M3 scale per 16 plus a per-tensor FP32 scale.</li>
+<li>Ternary 1.58-bit models must be trained that way from scratch; they are not a post-training shortcut.</li>
+</ul></div>
+
+<section class="faq"><h2 id="faq">Frequently asked questions</h2>
+<details><summary>Is BF16 better than FP16?</summary><p>For training, usually yes, because its FP32-sized range avoids overflow and underflow without loss scaling. FP16 has three more mantissa bits, so it is more precise for values that stay within its range.</p></details>
+<details><summary>Why is the maximum FP8 E4M3 value 448 and not 240?</summary><p>An IEEE-style E4M3 would reserve the top exponent for infinities and NaN, capping it at 1.875 × 2<sup>7</sup> = 240. The FP8 definition drops infinities and keeps one NaN mantissa pattern, so the top exponent holds ordinary values up to 1.75 × 2<sup>8</sup> = 448.</p></details>
+<details><summary>What is the difference between MXFP4 and NVFP4?</summary><p>Both use E2M1 elements. MXFP4 shares an E8M0 power-of-two scale per 32 values (about 4.25 bits per value); NVFP4 uses an FP8 E4M3 scale per 16 values plus a per-tensor FP32 scale (about 4.5 bits per value).</p></details>
+<details><summary>Is NF4 faster than INT4?</summary><p>Not inherently. NF4 is a lookup-based storage format dequantized for compute; its advantage is accuracy on normally distributed weights.</p></details>
+<details><summary>Can I convert an existing model to 1.58-bit?</summary><p>Not well by simple post-training rounding. BitNet b1.58 models are trained ternary from the start.</p></details>
+</section>
+
+<section class="sources"><h2 id="sources">Sources and further reading</h2><ol>
+<li><a href="https://arxiv.org/abs/2209.05433" rel="noopener" target="_blank">FP8 Formats for Deep Learning (Micikevicius et al.)</a> — E4M3 and E5M2 definitions and recommended use.</li>
+<li><a href="https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf" rel="noopener" target="_blank">OCP Microscaling Formats (MX) v1.0 specification</a> — MXFP8, MXFP6, MXFP4, MXINT8 and the E8M0 scale.</li>
+<li><a href="https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/" rel="noopener" target="_blank">Introducing NVFP4 (NVIDIA Technical Blog)</a> — two-level scaling and comparison with MXFP4.</li>
+<li><a href="https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/examples/fp8_primer.html" rel="noopener" target="_blank">Transformer Engine FP8 primer</a> — hybrid FP8 usage, delayed scaling, MXFP8 and NVFP4.</li>
+<li><a href="https://arxiv.org/abs/2305.14314" rel="noopener" target="_blank">QLoRA: Efficient Finetuning of Quantized LLMs</a> — NF4 construction and double quantization.</li>
+<li><a href="https://arxiv.org/abs/2402.17764" rel="noopener" target="_blank">The Era of 1-bit LLMs: All Large Language Models are in 1.58 Bits</a> — BitNet b1.58.</li>
+<li><a href="https://arxiv.org/abs/1710.03740" rel="noopener" target="_blank">Mixed Precision Training (Micikevicius et al.)</a> — FP16 training with loss scaling.</li>
+<li><a href="https://arxiv.org/abs/1905.12322" rel="noopener" target="_blank">A Study of BFLOAT16 for Deep Learning Training</a> — BF16 versus FP32 across workloads.</li>
+<li><a href="https://docs.pytorch.org/docs/2.14/notes/cuda.html" rel="noopener" target="_blank">PyTorch CUDA semantics: TensorFloat-32</a> — TF32 defaults and accuracy trade-off.</li>
+<li><a href="https://rocm.docs.amd.com/en/develop/reference/gpu-arch/mi350.html" rel="noopener" target="_blank">AMD Instinct MI350 Series microarchitecture</a> — OCP MX format support on CDNA 4.</li>
+</ol></section>
