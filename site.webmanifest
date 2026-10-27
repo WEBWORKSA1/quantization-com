@@ -1,0 +1,12 @@
+{
+  "name": "Quantization.com",
+  "short_name": "Quantization",
+  "description": "Quantization tools and guides: LLM VRAM calculator, formats atlas, ADC and audio bit depth, MIDI quantize and physics.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#F2F5FA",
+  "theme_color": "#121A2E",
+  "icons": [
+    {"src": "assets/img/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}
+  ]
+}

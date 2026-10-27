@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+<defs><pattern id="g" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#1E2842" stroke-width="1"/></pattern></defs>
+<rect width="1200" height="630" fill="#121A2E"/>
+<rect width="1200" height="630" fill="url(#g)"/>
+<polyline fill="none" stroke="#8197FF" stroke-width="4" points="
+0,410 12,396 24,384 36,375 48,368 60,365 72,365 84,367 96,370 108,373 120,376 132,377
+144,377 156,376 168,374 180,373 192,373 204,374 216,377 228,380 240,385 252,389 264,392 276,392
+288,391 300,387 312,380 324,373 336,364 348,357 360,352 372,348 384,348 396,350 408,355 420,361
+432,368 444,374 456,381 468,386 480,391 492,396 504,402 516,409 528,419 540,430 552,443 564,458
+576,472 588,486 600,498 612,507 624,513 636,515 648,515 660,513 672,509 684,505 696,502 708,499
+720,498 732,498 744,497 756,497 768,495 780,492 792,487 804,481 816,474 828,468 840,463 852,460
+864,460 876,462 888,467 900,473 912,479 924,485 936,490 948,492 960,491 972,488 984,483 996,476
+1008,469 1020,462 1032,456 1044,451 1056,446 1068,442 1080,436 1092,429 1104,420 1116,409 1128,396 1140,382
+1152,368 1164,355 1176,344 1188,335 1200,330"/>
+<polyline fill="none" stroke="#3BD3BE" stroke-width="6" stroke-linejoin="round" points="
+0,415 10,415 10,385 46,385 46,355 96,355 96,385 328,385 328,355 436,355 436,385 502,385
+502,415 540,415 540,445 566,445 566,475 592,475 592,505 786,505 786,475 856,475 856,445 864,445
+864,475 938,475 938,505 966,505 966,475 1026,475 1026,445 1092,445 1092,415 1126,415 1126,385 1152,385
+1152,355 1182,355 1182,325 1200,325"/>
+<text x="72" y="140" font-family="Instrument Sans,Inter,Helvetica,Arial,sans-serif" font-size="76" font-weight="650" fill="#FFFFFF">Quantization.com</text>
+<text x="74" y="212" font-family="Instrument Sans,Inter,Helvetica,Arial,sans-serif" font-size="46" font-weight="500" fill="#A9B4CC">Fewer bits, measured.</text>
+<text x="74" y="270" font-family="Instrument Sans,Inter,Helvetica,Arial,sans-serif" font-size="28" fill="#A9B4CC">VRAM calculator · formats atlas · guides for AI, audio, DSP and physics</text>
+</svg>
