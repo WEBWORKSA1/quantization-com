@@ -1,0 +1,126 @@
+---
+title: Music quantize guide: grid, swing, groove | Quantization.com
+description: How DAW quantize works: grid values in milliseconds, quantize strength, swing ratios, groove templates, audio quantize and how to keep a performance human.
+h1: Quantize in music production: grid, strength, swing and groove
+track: music
+read: 9
+summary: Grid values in milliseconds, quantize strength, swing as a ratio, groove templates, audio quantize and how to tighten timing without losing feel.
+---
+<p class="lede">Quantize in a DAW moves the start of each note toward the nearest line of a rhythmic grid, such as every 16th note. Used at full strength it makes timing machine-perfect; used with partial strength, swing or a groove template, it tightens a performance while keeping its feel. This guide converts grid values into milliseconds, shows how strength and swing are calculated, and covers MIDI, audio and record-time quantize.</p>
+
+<h2 id="what-quantize-does">What quantize actually does</h2>
+<p>A recorded MIDI note has a start time, a length and a velocity. Human players land a few milliseconds early or late. Quantize compares each note's start with a grid you choose and moves it to the closest grid line, or part of the way there.</p>
+<p>It is the same idea as quantization in signal processing: a continuous value, here time, is mapped onto a set of allowed values. A 1/16 quantize rounds time to the nearest of 16 positions per 4/4 bar. Rounding removes error, and it also removes small variations that were deliberate. For the general idea, see <a href="{{root}}learn/what-is-quantization.html">what is quantization</a>.</p>
+<aside class="note"><p>Many DAWs can quantize non-destructively. Logic Pro, for example, holds quantize as a MIDI region parameter until you apply it permanently. Prefer non-destructive options while you are still deciding.</p></aside>
+
+<h2 id="grid-values">Grid values and their length in milliseconds</h2>
+<p>The grid value is a note length: 1/4 (quarter notes), 1/8, 1/16, 1/32, plus triplet versions that divide a beat into three instead of two. Convert any grid to time with:</p>
+<div class="formula">quarter note (ms) = 60,000 / BPM &nbsp;&nbsp; 1/n note (ms) = (60,000 / BPM) × 4 / n</div>
+<p class="formula-note">Triplets are two-thirds of the straight value (three in the time of two). Dotted values are 1.5 times the straight value.</p>
+
+<div class="example"><h3>Worked example: the 16th-note grid at 120 BPM</h3>
+<ul>
+<li>One beat (quarter note) = 60,000 / 120 = 500 ms</li>
+<li>One 8th = 500 / 2 = 250 ms</li>
+<li>One 16th = 500 / 4 = <strong>125 ms</strong></li>
+<li>One 16th triplet = 125 × 2/3 ≈ 83.3 ms</li>
+</ul>
+<p>So in one bar of 4/4 at 120 BPM, the 1/16 grid lines fall at 0, 125, 250, 375 ms and so on up to 1,875 ms. A note played at 262 ms is 12 ms late for the 250 ms line and moves there at 100% strength.</p></div>
+
+<div class="table-wrap"><table><caption>Grid spacing at three tempos</caption><thead><tr><th>Grid</th><th>90 BPM</th><th>120 BPM</th><th>140 BPM</th></tr></thead><tbody>
+<tr><td>1/4</td><td>666.7 ms</td><td>500 ms</td><td>428.6 ms</td></tr>
+<tr><td>1/8</td><td>333.3 ms</td><td>250 ms</td><td>214.3 ms</td></tr>
+<tr><td>1/8 triplet</td><td>222.2 ms</td><td>166.7 ms</td><td>142.9 ms</td></tr>
+<tr><td>1/16</td><td>166.7 ms</td><td>125 ms</td><td>107.1 ms</td></tr>
+<tr><td>1/16 triplet</td><td>111.1 ms</td><td>83.3 ms</td><td>71.4 ms</td></tr>
+<tr><td>1/32</td><td>83.3 ms</td><td>62.5 ms</td><td>53.6 ms</td></tr>
+</tbody></table></div>
+<h3>Choosing the right grid</h3>
+<p>Pick the smallest note value the part actually uses. Quantizing a 16th-note hi-hat to 1/8 drags every in-between 16th onto the wrong line. Quantizing a quarter-note bass part to 1/32 gives every sloppy note a nearby line, so mistakes survive. Parts mixing straight and triplet figures are best quantized in sections.</p>
+
+<div data-cta="newsletter"></div>
+
+<h2 id="strength-and-options">Quantize strength, range and note ends</h2>
+<p>Strength (also called amount or percentage) sets how far each note moves toward its target. In Logic Pro, 100% is full quantization and 0% leaves the note where it was recorded; Ableton Live's Amount works the same way.</p>
+<div class="formula">new time = played time + strength × (grid time − played time)</div>
+<p>Take the note at 262 ms from the example above. At 100% it moves to 250 ms. At 60% it moves 0.6 × 12 = 7.2 ms earlier, to 254.8 ms, so it is still 4.8 ms late. Every error shrinks by the same proportion, so the take tightens while its push and pull survive.</p>
+<p>Some sequencers add a range or window setting. Logic's Q-Range, for instance, can leave notes that are already close to a grid line untouched and move only the ones further away. That fixes obvious mistakes and keeps the small, intentional deviations.</p>
+
+<h3>Quantizing note ends</h3>
+<p>Standard quantize moves only note starts. Ableton Live's Quantize tool can target starts, ends or both; quantizing ends snaps note-off times to the grid so that sustained chords release together. Use it where ragged releases are audible; leave it off for legato lines. Logic's Q-Flam goes the other way: it spreads notes that start together, turning a block chord into a fast strum or arpeggio.</p>
+<h3>Input or record quantize</h3>
+<p>Record quantize snaps MIDI as it is captured. In Ableton Live it is set from the Edit menu, and in Arrangement recording it is a separate undo step, so you can remove it and keep the take. Because it discards timing you might want later, many producers record unquantized and quantize afterwards.</p>
+
+<h2 id="swing-and-groove">Swing and groove templates</h2>
+<h3>Swing: delaying every second subdivision</h3>
+<p>Swing keeps the downbeats in place and delays every second note of each pair. With 16th-note swing, the pairs are the two 16ths inside each 8th; with 8th-note swing, the two 8ths inside each beat. Roger Linn, who built swing into his drum machines, describes it as delaying alternate 16th notes, with the amount of delay setting how much the groove swings.</p>
+<p>The most common convention, used on Linn and Akai MPC machines and in Logic Pro, expresses swing as the share of the pair given to the first note:</p>
+<div class="formula">swing % = first note's duration / pair duration &nbsp;&nbsp; long:short ratio = S / (100 − S)</div>
+<p>At 50% both notes are equal: straight timing, ratio 1:1. At 66.7% the first note gets two-thirds of the pair: ratio 2:1, exactly the triplet shuffle feel. At 75% the ratio is 3:1, a hard dotted-16th-plus-32nd figure.</p>
+<div class="example"><h3>Worked example: 16th-note swing at 120 BPM</h3>
+<p>Each 16th pair spans one 8th = 250 ms. The second 16th of the pair starts at S × 250 ms instead of 125 ms.</p>
+<div class="table-wrap"><table><thead><tr><th>Swing</th><th>Second 16th at</th><th>Delay vs straight</th><th>Long:short</th></tr></thead><tbody>
+<tr><td>50%</td><td>125.0 ms</td><td>0 ms</td><td>1:1</td></tr>
+<tr><td>54%</td><td>135.0 ms</td><td>+10.0 ms</td><td>1.17:1</td></tr>
+<tr><td>58%</td><td>145.0 ms</td><td>+20.0 ms</td><td>1.38:1</td></tr>
+<tr><td>62%</td><td>155.0 ms</td><td>+30.0 ms</td><td>1.63:1</td></tr>
+<tr><td>66.7%</td><td>166.7 ms</td><td>+41.7 ms</td><td>2:1 (triplet)</td></tr>
+<tr><td>75%</td><td>187.5 ms</td><td>+62.5 ms</td><td>3:1</td></tr>
+</tbody></table></div>
+<p>So in a bar of swung 16ths at 58%, the notes fall at 0, 145, 250, 395, 500, 645 ms and so on. Every on-beat and 8th-note position stays put; only the in-between 16ths move. With 8th-note swing at the same tempo the pair is 500 ms, so 66.7% puts the off-beat 8th at 333.3 ms instead of 250 ms.</p></div>
+<p>Small values matter: a 10 ms shift at 54% loosens a straight hi-hat without sounding like a shuffle. Linn notes that his LM-1, at 48 ticks per quarter note, offered 50, 54, 58, 60, 62, 66, 70 and 75%.</p>
+<aside class="warn"><p>Not every DAW uses the 50% convention. Some sequencers, including Cubase and FL Studio, use a scale where 0% is straight and 100% is a full triplet swing. A preset copied as "66%" between programs can mean very different timing, so check the scale before transferring settings.</p></aside>
+
+<h3>Groove templates and extracted grooves</h3>
+<p>Swing applies one fixed delay. A groove template stores a whole pattern of timing (and often velocity) offsets, so it can reproduce the feel of a specific drummer, drum machine or loop. You quantize to the groove instead of to a straight grid.</p>
+<p>Ableton Live's Groove Pool shows the typical controls: a <em>Base</em> grid that the groove is measured against, a <em>Quantize</em> amount that straightens notes first, a <em>Timing</em> amount for how strongly the groove's offsets apply, <em>Random</em> for small random variations, and <em>Velocity</em> for how much the groove's accents carry over. You can extract a groove from any audio or MIDI clip, apply it to other clips, and commit it to move the notes for real. Logic Pro's advanced quantize parameters can similarly take note lengths and velocities from a template region.</p>
+<p>Extracting a groove from a live drum take and applying it to programmed bass and keys makes them sit together, because every part shares the same micro-timing.</p>
+
+<h2 id="audio-quantize">Quantizing audio</h2>
+<p>Audio has no note events, so the DAW must find them first. It analyses the waveform for transients, the sharp rises in level where hits begin, places markers on them, then time-stretches the audio between markers so each marker lands on the grid. The tools have different names but the same principle:</p>
+<ul>
+<li><strong>Ableton Live</strong>: detected transients become warp markers; Quantize moves the nearest transient to the closest grid line, and its Amount setting moves warp markers a percentage of the way.</li>
+<li><strong>Logic Pro</strong>: Flex Time detects transient markers and stretches the audio between flex markers.</li>
+<li><strong>Pro Tools</strong>: Elastic Audio promotes event markers near the grid to warp markers, moves them, and applies time compression and expansion between them.</li>
+<li><strong>Cubase</strong>: AudioWarp quantize places warp markers at hitpoints and can derive positions from a priority track across several tracks.</li>
+</ul>
+<aside class="warn"><p>On multitrack drums, quantize all microphones together from one reference, which is what Cubase's priority track does. Moving the snare close mic without the overheads breaks the phase relationship between them and smears the sound. Pro Tools also offers a non-stretching route: quantize clip start points after slicing at transients.</p></aside>
+
+<h2 id="keep-it-human">Keeping it human</h2>
+<ul>
+<li><strong>Use partial strength.</strong> Values between roughly 50% and 80% tighten a take without flattening it.</li>
+<li><strong>Quantize selectively.</strong> Tight kick and snare with loose hi-hats and percussion often sounds more natural than a fully gridded kit.</li>
+<li><strong>Quantize to a groove, not a grid,</strong> when other parts were played live.</li>
+<li><strong>Keep velocity variation.</strong> Accents shape a groove as much as timing does; don't flatten velocities while fixing time.</li>
+<li><strong>Add small, deliberate offsets.</strong> A part a few milliseconds behind the beat feels laid back; slightly ahead feels urgent.</li>
+</ul>
+<div data-cta="tool" data-tool="music-quantizer"></div>
+<p>Hear strength and swing on a test pattern in the <a href="{{root}}tools/music-quantizer.html">music quantizer</a>.</p>
+
+<div class="takeaways"><h2 id="takeaways">Key takeaways</h2><ul>
+<li>Quantize moves note starts toward a rhythmic grid; 1/n note length in ms = (60,000 / BPM) × 4 / n.</li>
+<li>At 120 BPM a 16th is 125 ms, an 8th 250 ms and a 16th triplet about 83.3 ms.</li>
+<li>Strength moves notes a percentage of the way: new = played + strength × (grid − played).</li>
+<li>In the common convention, swing 50% is straight, 66.7% is a 2:1 triplet feel and 75% is 3:1; at 120 BPM, 58% swing delays every second 16th by 20 ms.</li>
+<li>Groove templates copy a real performance's timing and accents onto other parts.</li>
+<li>Audio quantize relies on transient detection and time-stretching; keep multitrack drums phase-locked.</li>
+</ul></div>
+
+<section class="faq"><h2 id="faq">Frequently asked questions</h2>
+<details><summary>What quantize value should I use for drums?</summary><p>Use the smallest note value actually played. Most pop and dance drum parts need 1/16; shuffle and many hip-hop parts need 1/16 with swing or a 16th-triplet grid; fills may need 1/32 or triplets in sections.</p></details>
+<details><summary>Why does my quantized part sound robotic?</summary><p>Every note now sits exactly on the grid and the natural spread is gone. Lower the strength, add a little swing, quantize to an extracted groove, or quantize only the instruments that need it.</p></details>
+<details><summary>Is 66% swing the same as triplets?</summary><p>Very nearly. Exact triplet swing is 66.7%, a 2:1 ratio. Machines that list 66% are rounding, or limited by their tick resolution. On a 0–100% swing scale, triplet feel is 100%.</p></details>
+<details><summary>Does quantizing audio reduce quality?</summary><p>Moving markers requires time-stretching, which can create artifacts on sustained or complex material, especially for large moves. Small corrections on percussive tracks are usually clean; slicing and moving clips avoids stretching entirely.</p></details>
+</section>
+
+<section class="sources"><h2 id="sources">Sources and further reading</h2><ol>
+<li><a href="https://www.ableton.com/en/manual/using-grooves/" rel="noopener" target="_blank">Ableton Live manual: Using Grooves</a> — Groove Pool parameters, extracting and committing grooves</li>
+<li><a href="https://www.ableton.com/en/manual/editing-midi/" rel="noopener" target="_blank">Ableton Live manual: Editing MIDI</a> — Quantize tool, amount, starts and ends</li>
+<li><a href="https://www.ableton.com/en/manual/audio-clips-tempo-and-warping/" rel="noopener" target="_blank">Ableton Live manual: Audio Clips, Tempo and Warping</a> — transients, warp markers and audio quantize</li>
+<li><a href="https://www.ableton.com/en/manual/recording-new-clips/" rel="noopener" target="_blank">Ableton Live manual: Recording New Clips</a> — record quantization behaviour</li>
+<li><a href="https://help.apple.com/logicpro/mac/10.4/en.lproj/lgcpf7c0d270.html" rel="noopener" target="_blank">Logic Pro user guide: MIDI region parameters</a> — Q-Swing, Q-Strength, Q-Range, Q-Flam definitions</li>
+<li><a href="https://apps.avid.com/protoolsfirsthelp/version12.3/enu/Pro%20Tools%20First%20Help/Proc3.Operations.38.26.html" rel="noopener" target="_blank">Avid Pro Tools help: Quantizing Elastic Audio</a> — event and warp markers, time compression and expansion</li>
+<li><a href="https://archive.steinberg.help/cubase_pro_artist/v9/en/cubase_nuendo/topics/quantizing_midi_audio/quantizing_quantize_panel_options_audiowarp_quantizing_multiple_audio_tracks_r.html" rel="noopener" target="_blank">Steinberg help: AudioWarp quantizing multiple audio tracks</a> — hitpoints and priority tracks</li>
+<li><a href="https://attackmagazine.com/features/interview/roger-linn-swing-groove-magic-mpc-timing/2" rel="noopener" target="_blank">Attack Magazine: Roger Linn on swing and groove</a> — how swing delays alternate 16ths; LM-1 settings</li>
+<li><a href="https://attackmagazine.com/technique/passing-notes/daw-drum-machine-swing/2" rel="noopener" target="_blank">Attack Magazine: Swing in DAWs and drum machines</a> — comparison of 50%-based and 0%-based swing scales</li>
+</ol></section>
