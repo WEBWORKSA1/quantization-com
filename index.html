@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quantization.com — LLM Quantization Tools, VRAM Calculator &amp; Guides</title>
+<meta name="description" content="Free quantization tools and guides: size any LLM with the VRAM calculator, compare GGUF, GPTQ, AWQ and FP8 formats, and learn ADC, audio and music quantization.">
+<link rel="canonical" href="https://quantization.com/">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#121A2E">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Quantization.com">
+<meta property="og:title" content="Quantization.com — LLM Quantization Tools, VRAM Calculator &amp; Guides">
+<meta property="og:description" content="Free quantization tools and guides: size any LLM with the VRAM calculator, compare GGUF, GPTQ, AWQ and FP8 formats, and learn ADC, audio and music quantization.">
+<meta property="og:url" content="https://quantization.com/">
+<meta property="og:image" content="https://quantization.com/assets/img/og.svg">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/img/icon.svg">
+<link rel="manifest" href="site.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wdth,wght@75..100,400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/site.css">
+<script>try{var t=localStorage.getItem('qz-theme');if(t)document.documentElement.setAttribute('data-theme',t);if(localStorage.getItem('qz-consent')==='essential'){(window.adsbygoogle=window.adsbygoogle||[]).requestNonPersonalizedAds=1}}catch(e){}</script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6620975821265271" crossorigin="anonymous"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Quantization.com","url":"https://quantization.com/","logo":"https://quantization.com/assets/img/icon.svg"}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Quantization.com","url":"https://quantization.com/"}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is quantization, in one sentence?","acceptedAnswer":{"@type":"Answer","text":"It is representing values with fewer distinct levels — fewer bits — by rounding each value to the nearest allowed level, which saves memory and bandwidth at the cost of a small, measurable error. Read the full explanation."}},{"@type":"Question","name":"Does quantizing an LLM make it worse?","acceptedAnswer":{"@type":"Answer","text":"Slightly, and how slightly depends on the bit width and method. 8-bit formats are usually close to the original; 4-bit formats lose a little more; below about 3 bits quality drops faster. Measure it on your own task rather than trusting a single benchmark. See the guide."}},{"@type":"Question","name":"Which GGUF file should I download?","acceptedAnswer":{"@type":"Answer","text":"Q4_K_M is a common default when memory is tight, Q5_K_M or Q6_K if you have room, and Q8_0 if you want near-reference quality. Use the VRAM calculator to check what fits, then read GGUF quant types explained."}},{"@type":"Question","name":"Is it the same \"quantization\" as in audio or physics?","acceptedAnswer":{"@type":"Answer","text":"The digital meaning — rounding to discrete levels — is shared by AI, ADCs, audio and MIDI timing. In physics, quantization describes nature itself: some quantities can only take discrete values. The intuition of steps is the same; the cause is different. Physics guide."}},{"@type":"Question","name":"How is this site funded?","acceptedAnswer":{"@type":"Answer","text":"Through advertising, sponsorships, reader support and optional paid help for teams who ask for it. Sponsors never decide what we write; see our editorial policy."}}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="ownerbar" role="note"><a href="https://web.works/contact" target="_blank" rel="noopener">Contact, if you are interested in this website/domain name/Sponsorship/Advertisement/Partnership</a></div>
+<header class="site"><div class="wrap nav">
+<a class="logo" href="index.html" aria-label="Quantization.com home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x=".5" y=".5" width="31" height="31" rx="8" fill="#121A2E" stroke="var(--rule-2)"/><path d="M5 20c3-11 7-11 11 0s7 11 11 0" fill="none" stroke="var(--signal)" stroke-width="2" opacity=".9"/><path d="M5 22h4v-6h4v-5h6v5h4v6h4" fill="none" stroke="var(--step)" stroke-width="2.4" stroke-linejoin="round"/></svg><span>Quantization<span class="tld">.com</span></span></a>
+<ul class="menu" id="menu"><li><a href="index.html" class="active" aria-current="page">Home</a></li><li><a href="tools/index.html">Tools</a></li><li><a href="learn/index.html">Learn</a></li><li><a href="formats.html">Formats</a></li><li><a href="videos.html">Videos</a></li><li><a href="resources.html">Resources</a></li><li><a href="challenge.html">Challenge</a></li><li><a href="support.html">Support</a></li></ul>
+<div class="nav-cta"><a class="btn btn-primary btn-sm btn-head" href="get-optimized.html">Free optimization plan</a>
+<button class="icon-btn" id="themeBtn" type="button" aria-label="Switch light or dark theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 4v16" /><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg></button>
+<button class="icon-btn burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button></div>
+</div></header>
+<main id="main">
+<section class="hero">
+<div class="wrap">
+<div class="hero-grid">
+<div>
+<h1>Fewer bits, measured.</h1>
+<p class="sub">Quantization squeezes models, signals and sound into fewer bits. We show you exactly what that saves — and what it costs — with live calculators and plain-English guides.</p>
+<div class="hero-actions"><a class="btn btn-primary" href="tools/vram-calculator.html">Size a model for your GPU</a><a class="btn btn-ghost" href="learn/what-is-quantization.html">How quantization works</a></div>
+</div>
+<div>
+<p class="muted small" style="margin:0">Drag the slider. The blue curve is the original signal, the teal staircase is what survives at that bit depth, and the magenta trace is the error you pay.</p>
+<dl class="readout" aria-live="polite"><div><dt>Bits</dt><dd class="stp" id="roBits">3</dd></div><div><dt>Levels</dt><dd class="sig" id="roLevels">8</dd></div><div><dt>Signal-to-noise</dt><dd class="err" id="roSqnr">—</dd></div></dl>
+</div>
+</div>
+</div>
+<div class="scope"><canvas id="scope" role="img" aria-label="A smooth waveform quantized into a staircase, with the quantization error drawn underneath"></canvas></div>
+<div class="wrap scope-bar">
+<label for="scopeBits">Bit depth</label><input type="range" id="scopeBits" min="1" max="8" step="1" value="3" aria-describedby="scopeHint">
+<span class="muted small" id="scopeHint">Each extra bit doubles the levels and adds about 6 dB of signal-to-noise.</span>
+<span class="legend"><span><i class="l-sig"></i>Original</span><span><i class="l-stp"></i>Quantized</span><span><i class="l-err"></i>Error</span></span>
+</div>
+</section>
+
+<section class="section-tight">
+<div class="wrap">
+<div class="paths">
+<a class="path" href="learn/llm-quantization-guide.html"><span class="track track-ai">AI models</span><h3>Run bigger models on smaller hardware</h3><p>GGUF, GPTQ, AWQ, FP8 and 4-bit formats, VRAM maths and how much quality you trade.</p></a>
+<a class="path" href="learn/adc-quantization-error.html"><span class="track track-signal">Signals and audio</span><h3>Turn voltages into numbers</h3><p>ADC resolution, the 6.02N + 1.76 dB rule, bit depth, dither and noise shaping.</p></a>
+<a class="path" href="learn/music-quantize-guide.html"><span class="track track-music">Music timing</span><h3>Tighten a groove without killing it</h3><p>Grid values, quantize strength, swing and groove templates in any DAW.</p></a>
+<a class="path" href="learn/quantization-in-physics.html"><span class="track track-physics">Physics</span><h3>Why energy comes in steps</h3><p>Planck, Bohr's hydrogen levels, particles in boxes and quantum numbers.</p></a>
+</div>
+</div>
+</section>
+
+<section class="section">
+<div class="wrap grid g2" style="gap:44px;align-items:start">
+<div>
+<h2>Will it fit on your GPU?</h2>
+<p class="muted">A quick check using parameters × bits ÷ 8, plus 1 GB and 5% for runtime overhead, with a short context. For KV cache, long context and 20 GPU presets, open the full calculator.</p>
+<div class="panel" id="quickFit">
+<div class="row2">
+<div class="field"><label for="qfParams">Model size (billions of parameters)</label><input type="number" id="qfParams" value="8" min="0.1" max="2000" step="0.1" inputmode="decimal"></div>
+<div class="field"><label for="qfBits">Format</label><select id="qfBits"><option value="16">FP16 / BF16 (16 bits)</option><option value="8.5">Q8_0 (≈8.5 bits)</option><option value="6.56">Q6_K (≈6.6 bits)</option><option value="5.7">Q5_K_M (≈5.7 bits)</option><option value="4.89" selected>Q4_K_M (≈4.9 bits)</option><option value="4.25">GPTQ / AWQ 4-bit (≈4.25 bits)</option><option value="4.0">Q3_K_M (≈4.0 bits)</option><option value="3.16">Q2_K (≈3.2 bits)</option></select></div>
+</div>
+<div class="field"><label for="qfVram">Your GPU memory</label><select id="qfVram"><option value="8">8 GB</option><option value="12">12 GB</option><option value="16">16 GB</option><option value="24" selected>24 GB</option><option value="32">32 GB</option><option value="48">48 GB</option><option value="80">80 GB</option></select></div>
+<div class="bigread"><div><div class="k">Weights</div><div class="v sig num" id="qfWeights">—</div></div><div><div class="k">Estimated total</div><div class="v stp num" id="qfTotal">—</div></div></div>
+<p id="qfVerdict" style="font-weight:600;margin:0 0 14px"></p>
+<a class="btn btn-ghost btn-sm" id="qfMore" data-base="tools/vram-calculator.html" href="tools/vram-calculator.html">Open the full VRAM calculator</a>
+</div>
+</div>
+<div>
+<h2>What 4-bit actually buys you</h2>
+<p>An 8-billion-parameter model stored at 16 bits needs about 16 GB just for its weights. The same model in the popular Q4_K_M format averages roughly 4.9 bits per weight, so it needs about 4.9 GB — small enough for a mid-range laptop GPU.</p>
+<div class="table-wrap"><table><caption>Llama 3.1 8B in llama.cpp formats (effective bits per weight and file size reported by the llama.cpp quantize tool)</caption><thead><tr><th>Format</th><th class="n">Bits / weight</th><th class="n">Size</th><th>Typical use</th></tr></thead><tbody>
+<tr><td>F16</td><td class="n">16.0</td><td class="n">14.96 GiB</td><td>Reference quality</td></tr>
+<tr><td>Q8_0</td><td class="n">8.50</td><td class="n">7.95 GiB</td><td>Near-lossless</td></tr>
+<tr><td>Q6_K</td><td class="n">6.56</td><td class="n">6.14 GiB</td><td>Quality-first</td></tr>
+<tr><td>Q5_K_M</td><td class="n">5.70</td><td class="n">5.33 GiB</td><td>Balanced</td></tr>
+<tr><td>Q4_K_M</td><td class="n">4.89</td><td class="n">4.58 GiB</td><td>Common default</td></tr>
+<tr><td>Q3_K_M</td><td class="n">4.00</td><td class="n">3.74 GiB</td><td>Tight memory</td></tr>
+</tbody></table></div>
+<p class="muted small">Source: <a href="https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md" target="_blank" rel="noopener">llama.cpp quantize README</a>. Compare 32 formats in the <a href="formats.html">formats atlas</a>.</p>
+</div>
+</div>
+</section>
+
+<section class="section">
+<div class="wrap">
+<div class="section-head"><div><h2>Tools</h2><p>Every calculator shows its working, runs in your browser and stores nothing on a server.</p></div><a class="btn btn-ghost btn-sm" href="tools/index.html">All tools</a></div>
+<div class="rack"><a class="rack-row" href="tools/vram-calculator.html"><span class="glyph"><svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="7" width="20" height="14" rx="2" stroke="var(--signal)"/><path d="M8 11v6M12 11v6M16 11v6M20 11v6" stroke="var(--step)"/><path d="M7 21v3M21 21v3M7 4v3M21 4v3" stroke="var(--ink-3)"/></svg></span><div><h3>LLM VRAM calculator</h3><p>Weights, KV cache and overhead for any model, quant and context length — with a fit check across 20 GPUs and Macs.</p></div><span class="out">GB needed · fit verdict · format comparison</span><span class="go">Open</span></a><a class="rack-row" href="tools/quantization-playground.html"><span class="glyph"><svg viewBox="0 0 28 28" fill="none" stroke-width="1.8"><path d="M2 16c3-9 6-9 9 0s6 9 9 0 4-7 6-4" stroke="var(--signal)"/><path d="M2 18h3v-5h3v-4h3v7h3v5h3v-3h3v-8h3v4h3" stroke="var(--step)"/></svg></span><div><h3>Quantization playground</h3><p>Quantize a signal or a weight distribution to 1–16 bits and watch the error, histogram and SQNR change live.</p></div><span class="out">MSE · SQNR · levels used</span><span class="go">Open</span></a><a class="rack-row" href="tools/adc-calculator.html"><span class="glyph"><svg viewBox="0 0 28 28" fill="none" stroke-width="1.8"><path d="M3 22L25 6" stroke="var(--signal)"/><path d="M3 22h4v-3h4v-3h4v-3h4v-3h4v-3h2" stroke="var(--step)"/></svg></span><div><h3>ADC and bit-depth calculator</h3><p>LSB size, ideal SNR, ENOB from measured SINAD, oversampling gain and audio file size in one panel.</p></div><span class="out">LSB · SQNR · ENOB · MB</span><span class="go">Open</span></a><a class="rack-row" href="tools/music-quantizer.html"><span class="glyph"><svg viewBox="0 0 28 28" fill="none" stroke-width="1.6"><path d="M4 4v20M10 4v20M16 4v20M22 4v20" stroke="var(--rule-2)"/><rect x="4" y="7" width="5" height="3" fill="var(--step)" stroke="none"/><rect x="11" y="13" width="5" height="3" fill="var(--signal)" stroke="none"/><rect x="16" y="18" width="5" height="3" fill="var(--step)" stroke="none"/></svg></span><div><h3>MIDI quantize and swing lab</h3><p>Play a loose drum loop, then quantize it with strength and swing and hear the difference in the browser.</p></div><span class="out">Offsets in ms · audio A/B</span><span class="go">Open</span></a><a class="rack-row" href="tools/energy-levels.html"><span class="glyph"><svg viewBox="0 0 28 28" fill="none" stroke-width="1.8"><path d="M4 23h20M4 17h20M4 13h20M4 11h20" stroke="var(--ink-3)"/><path d="M14 11v12" stroke="var(--error)"/><path d="M11 20l3 3 3-3" stroke="var(--error)"/></svg></span><div><h3>Energy levels calculator</h3><p>Hydrogen transitions with photon wavelength and colour, plus particle-in-a-box energies.</p></div><span class="out">eV · nm · THz</span><span class="go">Open</span></a></div>
+</div>
+</section>
+
+<section class="section">
+<div class="wrap">
+<div class="section-head"><div><h2>Start reading</h2><p>Guides written for the person who just searched the term and for the engineer who needs the exact number.</p></div><a class="btn btn-ghost btn-sm" href="learn/index.html">All guides</a></div>
+<ul class="alist"><li><a href="learn/adc-quantization-error.html"><span class="track track-signal">Signals & audio</span><h3>ADC quantization error, SQNR and ENOB explained</h3><p>LSB size, the ±½ LSB error bound, the Δ²/12 noise model, the 6.02N + 1.76 dB derivation, ENOB, oversampling and dither in one place.</p><span class="meta">9 min</span></a></li><li><a href="learn/gguf-quant-types.html"><span class="track track-ai">AI models</span><h3>GGUF quant types explained: legacy, k-quants and i-quants</h3><p>Decode GGUF names like Q4_K_M and IQ3_XXS, compare bits per weight, and learn to pick and build the right llama.cpp quant.</p><span class="meta">9 min</span></a></li><li><a href="learn/kv-cache-quantization.html"><span class="track track-ai">AI models</span><h3>KV cache quantization: the memory math and how to do it</h3><p>The KV cache formula, worked Llama 3.1 examples at 8K and 128K context, and how to quantize the cache in llama.cpp, Ollama and vLLM.</p><span class="meta">9 min</span></a></li><li><a href="learn/llm-quantization-guide.html"><span class="track track-ai">AI models</span><h3>LLM quantization: the complete practical guide</h3><p>Memory math, method families from GPTQ to NVFP4, quality metrics, and a hardware-first checklist for quantizing LLMs.</p><span class="meta">10 min</span></a></li><li><a href="learn/music-quantize-guide.html"><span class="track track-music">Music timing</span><h3>Quantize in music production: grid, strength, swing and groove</h3><p>Grid values in milliseconds, quantize strength, swing as a ratio, groove templates, audio quantize and how to tighten timing without losing feel.</p><span class="meta">9 min</span></a></li><li><a href="learn/what-is-quantization.html"><span class="track track-general">Foundations</span><h3>What is quantization? One idea behind AI, audio, music and physics</h3><p>How mapping values to discrete levels works, the math of its error, and where the same idea shows up, from 4-bit LLMs to atoms.</p><span class="meta">9 min</span></a></li></ul>
+</div>
+</section>
+
+<section class="section-tight">
+<div class="wrap">
+<div class="band">
+<div class="band-grid">
+<div>
+<h2>Serving a model in production? Shrink its bill.</h2>
+<p>Most teams run inference at 16 bits by default. Moving to a well-chosen 8-bit or 4-bit format can cut the memory a model needs by half or more, which often means fewer or smaller GPUs. Tell us what you run and we send back a free, specific optimization plan.</p>
+<a class="btn btn-primary" href="get-optimized.html">Get my free optimization plan</a>
+</div>
+<div class="savings">
+<div class="row2">
+<div class="field"><label for="hsSpend">Monthly GPU spend (USD)</label><input id="hsSpend" data-s="spend" type="number" min="0" step="100" value="8000" inputmode="numeric"></div>
+<div class="field"><label for="hsRed">Plausible reduction</label><select id="hsRed" data-s="reduction"><option value="20">20% (cautious)</option><option value="35" selected>35% (typical 8-bit move)</option><option value="50">50% (aggressive 4-bit)</option></select></div>
+</div>
+<p style="margin:0" class="small">Estimated savings</p>
+<p style="margin:0"><span class="stat" data-o="month">—</span> <span style="color:var(--band-ink-2)">per month</span></p>
+<p class="small" style="margin:4px 0 0">≈ <b data-o="year" style="color:#fff">—</b> per year. A rough illustration, not a quote: real savings depend on your traffic, latency targets and hardware.</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<section class="section">
+<div class="wrap">
+<div class="section-head"><div><h2>Watch</h2><p>Hand-picked explainers. Each video loads only when you press play.</p></div><a class="btn btn-ghost btn-sm" href="videos.html">All 24 videos</a></div>
+<div class="grid g3"><div class="vcard"><div class="video" data-yt="K75j8MkwgJ0" data-title="Optimize your AI: quantization explained"></div><h3>Optimize your AI: quantization explained</h3><span class="src">Matt Williams</span></div><div class="vcard"><div class="video" data-yt="qoQJq5UwV1c" data-title="How LLMs survive in low precision"></div><h3>How LLMs survive in low precision</h3><span class="src">Julia Turc</span></div><div class="vcard"><div class="video" data-yt="_cRFBBnUFug" data-title="Quantization part 6: quantization noise demo"></div><h3>Quantization part 6: quantization noise demo</h3><span class="src">On YouTube</span></div></div>
+</div>
+</section>
+
+<section class="section">
+<div class="wrap grid g2" style="gap:24px">
+<div class="panel">
+<span class="track track-ai">Season 1 registration is open</span>
+<h2 style="margin-top:8px">The Quantization Challenge</h2>
+<p class="muted">Compress an open model to fit in 8 GB and keep as much quality as you can. Transparent scoring, public leaderboard, prizes funded by sponsors and supporters.</p>
+<a class="btn btn-primary" href="challenge.html">See the brief and register</a>
+</div>
+<div class="panel">
+<span class="track track-general">Independent and reader-supported</span>
+<h2 style="margin-top:8px">Keep the tools free</h2>
+<p class="muted">Support pays for hosting, new tools, writers and engineers, and the prize pool. Every pledge is acknowledged and allocated in the open.</p>
+<a class="btn btn-ghost" href="support.html">Support the project</a>
+</div>
+</div>
+</section>
+
+<section class="section">
+<div class="wrap grid g2" style="gap:44px;align-items:start">
+<div>
+<h2>Questions people ask first</h2>
+<p class="muted">Short answers; each links to the full guide.</p>
+</div>
+<section class="faq">
+<details><summary>What is quantization, in one sentence?</summary><p>It is representing values with fewer distinct levels — fewer bits — by rounding each value to the nearest allowed level, which saves memory and bandwidth at the cost of a small, measurable error. <a href="learn/what-is-quantization.html">Read the full explanation</a>.</p></details>
+<details><summary>Does quantizing an LLM make it worse?</summary><p>Slightly, and how slightly depends on the bit width and method. 8-bit formats are usually close to the original; 4-bit formats lose a little more; below about 3 bits quality drops faster. Measure it on your own task rather than trusting a single benchmark. <a href="learn/llm-quantization-guide.html">See the guide</a>.</p></details>
+<details><summary>Which GGUF file should I download?</summary><p>Q4_K_M is a common default when memory is tight, Q5_K_M or Q6_K if you have room, and Q8_0 if you want near-reference quality. Use the <a href="tools/vram-calculator.html">VRAM calculator</a> to check what fits, then read <a href="learn/gguf-quant-types.html">GGUF quant types explained</a>.</p></details>
+<details><summary>Is it the same "quantization" as in audio or physics?</summary><p>The digital meaning — rounding to discrete levels — is shared by AI, ADCs, audio and MIDI timing. In physics, quantization describes nature itself: some quantities can only take discrete values. The intuition of steps is the same; the cause is different. <a href="learn/quantization-in-physics.html">Physics guide</a>.</p></details>
+<details><summary>How is this site funded?</summary><p>Through advertising, sponsorships, reader support and optional paid help for teams who ask for it. Sponsors never decide what we write; see our <a href="about.html#editorial-policy">editorial policy</a>.</p></details>
+</section>
+</div>
+</section>
+
+<section class="section-tight"><div class="wrap"><div class="cta-box"><div><h3>One clear explainer a week</h3><p>New tools, guides and formats across AI, signals, audio and physics. No spam; unsubscribe any time.</p></div>
+<form class="js-form inline-form" data-subject="Newsletter signup" data-ok="You're subscribed. The next issue lands next week."><input type="email" name="email" required placeholder="you@example.com" aria-label="Email address"><input class="hp" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true"><input type="hidden" name="list" value="Weekly explainer"><button class="btn btn-primary" type="submit">Subscribe</button><div class="form-msg" role="status"></div></form></div></div></section>
+
+</main>
+<footer class="site"><div class="wrap">
+<div class="foot-grid">
+<div><a class="logo" href="index.html"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x=".5" y=".5" width="31" height="31" rx="8" fill="#121A2E" stroke="var(--rule-2)"/><path d="M5 20c3-11 7-11 11 0s7 11 11 0" fill="none" stroke="var(--signal)" stroke-width="2" opacity=".9"/><path d="M5 22h4v-6h4v-5h6v5h4v6h4" fill="none" stroke="var(--step)" stroke-width="2.4" stroke-linejoin="round"/></svg><span>Quantization<span class="tld">.com</span></span></a>
+<p class="muted small" style="margin-top:12px;max-width:40ch">Calculators, visual explainers and format guides for representing models, signals and sound with fewer bits — and measuring what it costs.</p>
+<form class="js-form inline-form" data-subject="Newsletter signup" data-ok="You're subscribed. The next issue lands next week." style="margin-top:14px">
+<input type="email" name="email" required placeholder="you@example.com" aria-label="Email for the weekly newsletter"><input class="hp" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true"><input type="hidden" name="list" value="Weekly explainer"><button class="btn btn-primary btn-sm" type="submit">Subscribe</button><div class="form-msg" role="status"></div></form></div>
+<div><h4>Tools</h4><ul><li><a href="tools/vram-calculator.html">LLM VRAM calculator</a></li><li><a href="tools/quantization-playground.html">Quantization playground</a></li><li><a href="tools/adc-calculator.html">ADC and bit-depth calculator</a></li><li><a href="tools/music-quantizer.html">MIDI quantize and swing lab</a></li><li><a href="tools/energy-levels.html">Energy levels calculator</a></li></ul></div>
+<div><h4>Learn</h4><ul><li><a href="learn/index.html">All guides</a></li><li><a href="learn/llm-quantization-guide.html">LLM quantization guide</a></li><li><a href="formats.html">Formats atlas</a></li><li><a href="glossary.html">Glossary</a></li><li><a href="cheat-sheet.html">Cheat sheet</a></li><li><a href="videos.html">Videos</a></li><li><a href="resources.html">Resources</a></li></ul></div>
+<div><h4>Get involved</h4><ul><li><a href="get-optimized.html">Free optimization plan</a></li><li><a href="challenge.html">Quantization Challenge</a></li><li><a href="support.html">Support the project</a></li><li><a href="careers.html">Careers and talent</a></li><li><a href="advertise.html">Advertise and sponsor</a></li></ul></div>
+<div><h4>Company</h4><ul><li><a href="about.html">About and editorial policy</a></li><li><a href="contact.html">Contact</a></li><li><a href="https://web.works/contact" target="_blank" rel="noopener">Buy, partner or sponsor</a></li><li><a href="privacy.html">Privacy policy</a></li><li><a href="terms.html">Terms of use</a></li><li><a href="cookies.html">Cookie policy</a></li><li><a href="disclaimer.html">Disclaimer</a></li><li><a href="trademark.html">Trademark and copyright</a></li><li><a href="sitemap.html">Sitemap</a></li></ul></div>
+</div>
+<div class="legal">
+<p><b>Trademark and copyright disclosure.</b> “Quantization” is a generic scientific and engineering term. Quantization.com claims no exclusive rights in the word and is an independent educational publication, not affiliated with, endorsed by or sponsored by any company, project, product or person that uses the term. Product names, model names and logos mentioned on this site (for example llama.cpp, GGUF, PyTorch, TensorFlow, NVIDIA, Apple, Hugging Face) are trademarks of their respective owners and are used for identification only. <a href="trademark.html">Read the full disclosure</a>.</p>
+<p>Content is for general education and is not professional engineering, legal or financial advice. This site shows advertising served by Google AdSense. © <span class="year">2026</span> Quantization.com. Original text, tools, code and graphics © Quantization.com unless otherwise credited.</p>
+</div></div></footer>
+<div class="mcta"><a class="btn btn-ghost" href="tools/vram-calculator.html">VRAM calculator</a><a class="btn btn-primary" href="get-optimized.html">Free plan</a></div>
+<div class="cookie" id="cookie" role="dialog" aria-label="Cookie choices"><p>We use essential browser storage for site settings and, with your consent, cookies from Google to personalise and measure ads. Choose “Essential only” to receive non-personalised ads. Details in our <a href="cookies.html">cookie policy</a>.</p>
+<div class="acts"><button class="btn btn-primary btn-sm" type="button" data-consent="all">Accept all</button><button class="btn btn-ghost btn-sm" type="button" data-consent="essential">Essential only</button></div></div>
+<script src="assets/js/site.js" defer></script>
+</body>
+</html>
