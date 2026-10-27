@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PTQ vs QAT explained: when to use each | Quantization.com</title>
+<meta name="description" content="Post-training quantization vs quantization-aware training: calibration methods, static vs dynamic, fake quantization, the STE, and when QAT pays off.">
+<link rel="canonical" href="https://quantization.com/learn/ptq-vs-qat.html">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#121A2E">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Quantization.com">
+<meta property="og:title" content="PTQ vs QAT: post-training quantization and quantization-aware training">
+<meta property="og:description" content="Post-training quantization vs quantization-aware training: calibration methods, static vs dynamic, fake quantization, the STE, and when QAT pays off.">
+<meta property="og:url" content="https://quantization.com/learn/ptq-vs-qat.html">
+<meta property="og:image" content="https://quantization.com/assets/img/og.svg">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/img/icon.svg">
+<link rel="manifest" href="../site.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wdth,wght@75..100,400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/site.css">
+<script>try{var t=localStorage.getItem('qz-theme');if(t)document.documentElement.setAttribute('data-theme',t);if(localStorage.getItem('qz-consent')==='essential'){(window.adsbygoogle=window.adsbygoogle||[]).requestNonPersonalizedAds=1}}catch(e){}</script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6620975821265271" crossorigin="anonymous"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Quantization.com","url":"https://quantization.com/","logo":"https://quantization.com/assets/img/icon.svg"}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"PTQ vs QAT: post-training quantization and quantization-aware training","description":"Post-training quantization vs quantization-aware training: calibration methods, static vs dynamic, fake quantization, the STE, and when QAT pays off.","datePublished":"2026-10-27","dateModified":"2026-10-27","wordCount":2184,"author":{"@type":"Organization","name":"Quantization.com editorial team","url":"https://quantization.com/about.html"},"publisher":{"@type":"Organization","name":"Quantization.com","logo":{"@type":"ImageObject","url":"https://quantization.com/assets/img/icon.svg"}},"mainEntityOfPage":"https://quantization.com/learn/ptq-vs-qat.html","image":"https://quantization.com/assets/img/og.svg"}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://quantization.com/"},{"@type":"ListItem","position":2,"name":"Learn","item":"https://quantization.com/learn/"},{"@type":"ListItem","position":3,"name":"PTQ vs QAT: post-training quantization and quantization-aware training","item":"https://quantization.com/learn/ptq-vs-qat.html"}]}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is QAT always more accurate than PTQ?","acceptedAnswer":{"@type":"Answer","text":"At the same bit width and with enough training it usually matches or beats PTQ, because the weights can adapt. At 8 bits on large models the difference is often negligible, so the extra cost buys little."}},{"@type":"Question","name":"Does PTQ need labelled data?","acceptedAnswer":{"@type":"Answer","text":"No. Calibration only needs representative inputs to measure activation ranges, and weight-only methods with on-the-fly quantization need no data at all."}},{"@type":"Question","name":"What is the straight-through estimator?","acceptedAnswer":{"@type":"Answer","text":"A gradient approximation that treats the rounding step as the identity function during backpropagation, so gradients can flow through quantization nodes. Values that were clipped receive zero gradient."}},{"@type":"Question","name":"Is GPTQ a form of QAT?","acceptedAnswer":{"@type":"Answer","text":"No. GPTQ is PTQ: it uses calibration data to choose better rounded weights layer by layer, with no gradient-based training of the model."}},{"@type":"Question","name":"Should I use static or dynamic quantization?","acceptedAnswer":{"@type":"Answer","text":"Use dynamic when activation ranges vary a lot between inputs or you have no calibration data, as with most LLM serving. Use static when you need integer-only inference, such as on microcontrollers or NPUs, and can supply representative samples."}}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="ownerbar" role="note"><a href="https://web.works/contact" target="_blank" rel="noopener">Contact, if you are interested in this website/domain name/Sponsorship/Advertisement/Partnership</a></div>
+<header class="site"><div class="wrap nav">
+<a class="logo" href="../index.html" aria-label="Quantization.com home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x=".5" y=".5" width="31" height="31" rx="8" fill="#121A2E" stroke="var(--rule-2)"/><path d="M5 20c3-11 7-11 11 0s7 11 11 0" fill="none" stroke="var(--signal)" stroke-width="2" opacity=".9"/><path d="M5 22h4v-6h4v-5h6v5h4v6h4" fill="none" stroke="var(--step)" stroke-width="2.4" stroke-linejoin="round"/></svg><span>Quantization<span class="tld">.com</span></span></a>
+<ul class="menu" id="menu"><li><a href="../index.html">Home</a></li><li><a href="../tools/index.html">Tools</a></li><li><a href="../learn/index.html" class="active" aria-current="page">Learn</a></li><li><a href="../formats.html">Formats</a></li><li><a href="../videos.html">Videos</a></li><li><a href="../resources.html">Resources</a></li><li><a href="../challenge.html">Challenge</a></li><li><a href="../support.html">Support</a></li></ul>
+<div class="nav-cta"><a class="btn btn-primary btn-sm btn-head" href="../get-optimized.html">Free optimization plan</a>
+<button class="icon-btn" id="themeBtn" type="button" aria-label="Switch light or dark theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 4v16" /><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg></button>
+<button class="icon-btn burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button></div>
+</div></header>
+<main id="main">
+<nav class="crumbs wrap" aria-label="Breadcrumb"><a href="../index.html">Home</a> <span aria-hidden="true">/</span> <a href="../learn/index.html">Learn</a> <span aria-hidden="true">/</span> <span aria-current="page">PTQ vs QAT: post-training quantization and quantization-aware training</span></nav>
+<article class="wrap">
+<header class="art-head">
+<span class="track track-ai">AI models</span>
+<h1>PTQ vs QAT: post-training quantization and quantization-aware training</h1>
+<div class="art-meta"><span>By the Quantization.com editorial team</span><span>Updated <time datetime="2026-10-27">October 27, 2026</time></span><span>10 min read</span></div>
+</header>
+<div class="art-layout">
+<div class="prose">
+<p class="lede">Post-training quantization (PTQ) converts an already-trained model to lower precision using at most a small calibration sample and no retraining. Quantization-aware training (QAT) simulates quantization during training or fine-tuning so the weights learn to tolerate rounding error. PTQ is cheap and usually enough at 8 bits; QAT costs a training run but recovers accuracy when you push to 4 bits or below, or when PTQ alone falls short.</p>
+
+<h2 id="at-a-glance">The difference at a glance</h2>
+<p>Both approaches end with the same artefact: a model whose weights, and sometimes activations, are stored as low-bit integers or small floats with scale factors. They differ in <em>when</em> the model learns about quantization. In PTQ, it never does; you pick good scales and rounding after the fact. In QAT, the forward pass rounds values during training, so gradient descent pushes the weights toward values that survive rounding.</p>
+<p>Qualcomm AI Research's white paper on neural network quantization (Nagel et al., 2021) frames it this way: PTQ is a push-button step that needs neither retraining nor labelled data and is often sufficient for 8-bit, while QAT needs fine-tuning and training data but reaches lower bit widths with competitive accuracy.</p>
+<div class="table-wrap"><table>
+<thead><tr><th></th><th>Post-training quantization</th><th>Quantization-aware training</th></tr></thead>
+<tbody>
+<tr><td>Training required</td><td>None</td><td>Fine-tuning or full training run</td></tr>
+<tr><td>Data required</td><td>None, or a small unlabelled calibration set</td><td>Training data (or a teacher model's outputs)</td></tr>
+<tr><td>Compute cost</td><td>Minutes to hours</td><td>Extra training steps, from a short fine-tune to a full run</td></tr>
+<tr><td>Typical sweet spot</td><td>INT8, FP8, 4-bit LLM weights with GPTQ/AWQ</td><td>4-bit and below, small or efficiency-tuned models</td></tr>
+<tr><td>Examples</td><td>GPTQ, AWQ, GGUF k-quants, TFLite full-integer conversion</td><td>torchao QAT, TF Model Optimization QAT, BitNet b1.58 (trained from scratch)</td></tr>
+</tbody></table></div>
+
+<h2 id="scales-and-granularity">Scales, zero-points and granularity</h2>
+<p>Both workflows share the same quantizer. Uniform affine (asymmetric) quantization maps a real value x to a b-bit integer using a scale s and zero-point z:</p>
+<div class="formula">x<sub>q</sub> = clamp(round(x / s) + z, 0, 2<sup>b</sup> − 1) &nbsp;&nbsp; x̂ = s · (x<sub>q</sub> − z)</div>
+<p class="formula-note">For a calibrated range [min, max]: s = (max − min) / (2<sup>b</sup> − 1) and z = round(−min / s). Symmetric quantization fixes z = 0 and uses s = max|x| / (2<sup>b−1</sup> − 1) with a signed integer grid.</p>
+<p>Symmetric is cheaper at run time, because there is no zero-point term to correct for when accumulating integer products. Asymmetric uses the full grid when data is lopsided, such as post-ReLU activations. The white paper recommends symmetric quantizers for weights and asymmetric ones for activations on typical accelerators.</p>
+
+<div class="example"><h3>Worked example: symmetric vs asymmetric INT8</h3>
+<p>Suppose an activation tensor spans [−1, 3] and we quantize x = 0.5 to 8 bits.</p>
+<p><strong>Asymmetric:</strong> s = 4 / 255 ≈ 0.01569, z = round(1 / 0.01569) = round(63.75) = 64. Then round(0.5 / 0.01569) = round(31.88) = 32, so x<sub>q</sub> = 32 + 64 = 96. Dequantized: 0.01569 × (96 − 64) ≈ 0.5020, an error of about 0.0020.</p>
+<p><strong>Symmetric:</strong> s = 3 / 127 ≈ 0.02362. round(0.5 / 0.02362) = round(21.17) = 21, dequantized to 21 × 0.02362 ≈ 0.4961, an error of about 0.0039. The step is half as fine again because the grid also covers [−3, −1], where no data lives.</p></div>
+
+<h3>Per-tensor, per-channel, per-group</h3>
+<p><strong>Granularity</strong> is how many values share one scale. <strong>Per-tensor</strong> uses one scale for the whole tensor: simplest, but a single outlier ruins it. If one weight is 100 and the rest sit within ±1, a symmetric INT8 scale is 100 / 127 ≈ 0.79, so every weight smaller than about 0.39 in magnitude rounds to zero. <strong>Per-channel</strong> gives each output channel (row of a weight matrix) its own scale and is the standard for INT8 weights. <strong>Per-group</strong> (or block-wise) splits each row into groups, commonly 32, 64 or 128 weights, which is what 4-bit LLM methods such as GPTQ and AWQ rely on. The cost is metadata: a 16-bit scale per 128 weights adds 16 ÷ 128 = 0.125 bits per weight. Activations are usually per-tensor or, for LLMs, <strong>per-token</strong>.</p>
+
+<div class="cta-box lead"><div><h3>Want this done for your model?</h3><p>Tell us your model, hardware and target. We send back a free optimization plan: recommended format, expected memory and a quality-check method.</p></div><a class="btn btn-primary" href="../get-optimized.html">Get the free plan</a></div>
+
+<h2 id="calibration">Calibration and static vs dynamic quantization</h2>
+<p>Weights are known ahead of time, so their scales can be computed directly. Activations depend on the input, so you either measure them in advance (static) or compute them on the fly (dynamic).</p>
+<h3>Static quantization and calibration methods</h3>
+<p>Static PTQ runs a few hundred representative inputs through the model with observers attached, records activation statistics, and freezes a scale per activation tensor. Google's LiteRT (formerly TensorFlow Lite) documentation suggests roughly 100–500 samples for this representative dataset. The question is where to clip:</p>
+<ul>
+<li><strong>Min-max</strong>: use the observed extremes. No clipping error, but outliers inflate the step size for everything else.</li>
+<li><strong>Percentile</strong>: clip at, say, the 99.99th percentile of absolute values. Rare outliers saturate; typical values get finer resolution.</li>
+<li><strong>MSE</strong>: search for the range that minimises mean squared error between original and quantized values, balancing rounding error against clipping error.</li>
+<li><strong>Entropy (KL divergence)</strong>: choose the threshold that minimises the KL divergence between the original and quantized activation histograms. NVIDIA's 2020 study of integer inference notes this is TensorRT's default.</li>
+</ul>
+<p>That NVIDIA study (Wu et al.) compared max, entropy and percentile calibration and found that no single method was best for every network, so it recommends trying several. Its full 8-bit workflow (calibration, then partial quantization, then QAT only if needed) stayed within 1% of the floating-point baseline on every network it examined.</p>
+<h3>Dynamic quantization</h3>
+<p>Dynamic quantization stores weights in INT8 ahead of time but computes activation scales at run time from each input's actual range. There is no calibration step and no risk of a stale range, at the cost of computing min and max during inference. PyTorch's original guidance recommended dynamic quantization for LSTMs and Transformers, whose run time is dominated by loading weights, and static quantization for CNNs, where activation bandwidth matters. Modern LLM serving uses the same idea: FP8 and INT8 schemes with per-token dynamic activation scales need no calibration data.</p>
+<aside class="note"><p>Weight-only quantization (as in most 4-bit LLM checkpoints) sidesteps activation calibration entirely: activations stay in 16-bit, and weights are dequantized inside the matrix-multiply kernel. GPTQ and AWQ still use calibration data, but to choose better <em>weights</em>, not activation ranges.</p></aside>
+
+<h2 id="fake-quantization">How QAT works: fake quantization and the STE</h2>
+<p>QAT inserts <strong>fake quantization</strong> (quantize-then-dequantize) operations on weights and, optionally, activations. In the forward pass a value is scaled, rounded, clamped and immediately scaled back, so the tensor is still floating point but carries exactly the error the deployed integer model will see:</p>
+<div class="formula">x̂ = s · clamp(round(x / s), q<sub>min</sub>, q<sub>max</sub>)</div>
+<p>The problem is the backward pass. Rounding is a staircase whose gradient is zero almost everywhere and undefined at the steps, so naive backpropagation would never update anything. The <strong>straight-through estimator</strong> (STE), popularised by Bengio, Léonard and Courville (2013), simply treats rounding as the identity when computing gradients:</p>
+<div class="formula">∂x̂ / ∂x ≈ 1 if q<sub>min</sub> ≤ x / s ≤ q<sub>max</sub>, otherwise 0</div>
+<p class="formula-note">Gradients pass through unchanged inside the representable range and are blocked where the value is clipped.</p>
+<p>The optimiser keeps full-precision "shadow" weights and updates them with these gradients; only the forward pass sees quantized values. After training you drop the fake-quant nodes and convert to real integer kernels. Variants learn the scale itself as a parameter, and for CNNs batch normalisation is usually folded into the preceding convolution before QAT so the simulated arithmetic matches deployment.</p>
+
+<h2 id="when-qat-pays-off">When QAT is worth it, and where QLoRA fits</h2>
+<p>Start with PTQ. Move to QAT when any of these apply:</p>
+<ul>
+<li><strong>You are going below 8 bits</strong> for weights and activations, or below 4 bits for weights. Rounding error grows quickly as the grid coarsens, and PTQ has no way to let the network compensate.</li>
+<li><strong>The model is small or already efficiency-tuned.</strong> Compact vision networks have little redundancy to absorb error.</li>
+<li><strong>PTQ with good calibration and per-channel scales still misses your accuracy target.</strong> Wu et al. suggest first leaving the most sensitive layers in floating point, then fine-tuning with QAT for roughly 10% of the original schedule, starting at 1% of the original learning rate.</li>
+<li><strong>You ship one checkpoint to many users</strong>, so a one-time training cost is amortised. Google's Gemma 3 QAT release is an example: about 5,000 QAT steps using the full-precision model's output probabilities as targets, which Google reports cut the perplexity drop at Q4_0 by 54%.</li>
+</ul>
+<p>QAT does not pay off when PTQ is already within noise of the baseline, as is common for INT8 and FP8 on large models.</p>
+<h3>QLoRA: PTQ base, trained adapters</h3>
+<p>QLoRA (Dettmers et al., 2023) is a hybrid. The base model is quantized post-training to NF4 and frozen; small low-rank adapters are trained in BF16 on top. The adapters do learn in the presence of quantization error, but the quantized weights themselves never change, so it is not QAT in the strict sense. Its goal is cheap fine-tuning, not a better quantized model. torchao and Unsloth now also offer QAT combined with LoRA, which brings the two ideas closer.</p>
+
+<h2 id="in-practice">PTQ and QAT in PyTorch and TensorFlow</h2>
+<h3>PyTorch: torchao</h3>
+<p>New quantization work in the PyTorch ecosystem happens in torchao, whose <code>quantize_</code> function swaps <code>nn.Linear</code> layers according to a config object. Dynamic INT8 PTQ (per-token activations, per-channel weights) and the two-step QAT flow look like this, following the current torchao documentation:</p>
+<pre><code>from torchao.quantization import (
+    quantize_, Int8DynamicActivationInt8WeightConfig, Int4WeightOnlyConfig,
+)
+from torchao.quantization.qat import QATConfig
+
+# PTQ: dynamic INT8 activations + INT8 weights, no calibration
+quantize_(model, Int8DynamicActivationInt8WeightConfig())
+
+# QAT (on a fresh float model): insert fake-quantized linears, train, convert
+base_config = Int4WeightOnlyConfig(group_size=32)
+quantize_(model, QATConfig(base_config, step="prepare"))
+train_loop(model)  # your usual fine-tuning loop
+quantize_(model, QATConfig(base_config, step="convert"))
+</code></pre>
+<p>At the time of writing, the docs list <code>Int4WeightOnlyConfig</code> as the PTQ base config supported by <code>QATConfig</code>; finer control is available through fake-quantize configs such as <code>IntxFakeQuantizeConfig</code>.</p>
+<h3>TensorFlow Model Optimization</h3>
+<p>The Keras QAT API wraps a model with fake-quant nodes; the result is "quantization aware" but still float32 until the LiteRT converter produces INT8 weights:</p>
+<pre><code>import tensorflow as tf
+import tensorflow_model_optimization as tfmot
+
+qat_model = tfmot.quantization.keras.quantize_model(model)
+qat_model.compile(optimizer="adam", loss=loss_fn, metrics=["accuracy"])
+qat_model.fit(train_ds, epochs=1)
+
+converter = tf.lite.TFLiteConverter.from_keras_model(qat_model)
+converter.optimizations = [tf.lite.Optimize.DEFAULT]
+tflite_model = converter.convert()
+</code></pre>
+<p>The toolkit supports Sequential and Functional Keras models, and its deployment path supports 8-bit only. The official example runs on the legacy <code>tf_keras</code> package, so check Keras version compatibility before adopting it. For PTQ, the converter offers dynamic-range, full-integer (with a representative dataset) and float16 modes.</p>
+
+<div class="cta-box"><div><h3>Try it: Quantization playground</h3><p>Quantize a signal or a weight distribution to 1–16 bits and watch the error, histogram and SQNR change live.</p></div><a class="btn btn-ghost" href="../tools/quantization-playground.html">Open the tool</a></div>
+
+<div class="takeaways"><h2 id="takeaways">Key takeaways</h2><ul>
+<li>PTQ needs no retraining and at most a small calibration set; it is usually enough for INT8, FP8 and 4-bit LLM weights.</li>
+<li>Calibration choices (min-max, percentile, MSE, KL) trade clipping error against rounding error; finer granularity helps more than any calibration trick when outliers dominate.</li>
+<li>Dynamic quantization computes activation scales at run time and skips calibration; static quantization freezes them in advance.</li>
+<li>QAT simulates rounding with fake quantization and trains through it using the straight-through estimator.</li>
+<li>Use QAT for very low bit widths, small models, or when tuned PTQ misses your accuracy target; QLoRA is a fine-tuning hybrid, not true QAT.</li>
+</ul></div>
+
+<section class="faq"><h2 id="faq">Frequently asked questions</h2>
+<details><summary>Is QAT always more accurate than PTQ?</summary><p>At the same bit width and with enough training it usually matches or beats PTQ, because the weights can adapt. At 8 bits on large models the difference is often negligible, so the extra cost buys little.</p></details>
+<details><summary>Does PTQ need labelled data?</summary><p>No. Calibration only needs representative inputs to measure activation ranges, and weight-only methods with on-the-fly quantization need no data at all.</p></details>
+<details><summary>What is the straight-through estimator?</summary><p>A gradient approximation that treats the rounding step as the identity function during backpropagation, so gradients can flow through quantization nodes. Values that were clipped receive zero gradient.</p></details>
+<details><summary>Is GPTQ a form of QAT?</summary><p>No. GPTQ is PTQ: it uses calibration data to choose better rounded weights layer by layer, with no gradient-based training of the model.</p></details>
+<details><summary>Should I use static or dynamic quantization?</summary><p>Use dynamic when activation ranges vary a lot between inputs or you have no calibration data, as with most LLM serving. Use static when you need integer-only inference, such as on microcontrollers or NPUs, and can supply representative samples.</p></details>
+</section>
+
+<section class="sources"><h2 id="sources">Sources and further reading</h2><ol>
+<li><a href="https://arxiv.org/abs/2106.08295" rel="noopener" target="_blank">A White Paper on Neural Network Quantization (Nagel et al.)</a> — PTQ and QAT pipelines, range setting, STE, batch-norm folding.</li>
+<li><a href="https://arxiv.org/abs/2004.09602" rel="noopener" target="_blank">Integer Quantization for Deep Learning Inference (Wu et al.)</a> — calibration methods and a practical 8-bit workflow.</li>
+<li><a href="https://arxiv.org/abs/1308.3432" rel="noopener" target="_blank">Estimating or Propagating Gradients Through Stochastic Neurons (Bengio et al.)</a> — origin of the straight-through estimator.</li>
+<li><a href="https://arxiv.org/abs/2305.14314" rel="noopener" target="_blank">QLoRA: Efficient Finetuning of Quantized LLMs</a> — NF4 base plus trainable adapters.</li>
+<li><a href="https://docs.pytorch.org/ao/stable/workflows/qat.html" rel="noopener" target="_blank">torchao quantization-aware training docs</a> — QATConfig prepare/convert flow and fake quantization.</li>
+<li><a href="https://www.tensorflow.org/model_optimization/guide/quantization/training" rel="noopener" target="_blank">TensorFlow Model Optimization: quantization-aware training</a> — API scope and limitations.</li>
+<li><a href="https://developers.google.com/edge/litert/conversion/tensorflow/quantization/post_training_quantization" rel="noopener" target="_blank">LiteRT post-training quantization guide</a> — dynamic-range, full-integer and float16 PTQ.</li>
+<li><a href="https://developers.googleblog.com/en/gemma-3-quantized-aware-trained-state-of-the-art-ai-to-consumer-gpus/" rel="noopener" target="_blank">Gemma 3 QAT models (Google Developers Blog)</a> — a production QAT example for 4-bit LLMs.</li>
+</ol></section>
+
+<div class="byline"><div><b>About this guide.</b> Written and fact-checked by the Quantization.com editorial team against the primary sources listed above. Spotted an error or an outdated command? <a href="../contact.html?topic=Correction">Send a correction</a> — we fix verified issues within a few days. See our <a href="../about.html#editorial-policy">editorial policy</a>.</div></div>
+<div class="share" aria-label="Share this page"><a class="btn btn-ghost btn-sm" data-share="copy" href="#">Copy link</a><a class="btn btn-ghost btn-sm" data-share="x" href="#">Post on X</a><a class="btn btn-ghost btn-sm" data-share="linkedin" href="#">LinkedIn</a><a class="btn btn-ghost btn-sm" data-share="reddit" href="#">Reddit</a><a class="btn btn-ghost btn-sm" data-share="hn" href="#">Hacker News</a></div>
+</div>
+<aside class="art-side"><nav class="toc" aria-label="On this page"><h2>On this page</h2><ol><li><a href="#at-a-glance">The difference at a glance</a></li><li><a href="#scales-and-granularity">Scales, zero-points and granularity</a></li><li><a href="#calibration">Calibration and static vs dynamic quantization</a></li><li><a href="#fake-quantization">How QAT works: fake quantization and the STE</a></li><li><a href="#when-qat-pays-off">When QAT is worth it, and where QLoRA fits</a></li><li><a href="#in-practice">PTQ and QAT in PyTorch and TensorFlow</a></li><li><a href="#takeaways">Key takeaways</a></li><li><a href="#faq">Frequently asked questions</a></li><li><a href="#sources">Sources and further reading</a></li></ol></nav><div class="side-cta"><h3>Free optimization plan</h3><p>Send your model and hardware; get a recommended format and memory estimate back.</p><a class="btn btn-primary btn-sm" href="../get-optimized.html">Request the plan</a></div></aside>
+</div>
+<section class="related"><h2>Keep reading</h2><ul class="alist"><li><a href="../learn/gguf-quant-types.html"><span class="track track-ai">AI models</span><h3>GGUF quant types explained: legacy, k-quants and i-quants</h3><p>Decode GGUF names like Q4_K_M and IQ3_XXS, compare bits per weight, and learn to pick and build the right llama.cpp quant.</p><span class="meta">9 min</span></a></li><li><a href="../learn/gptq-vs-awq-vs-gguf.html"><span class="track track-ai">AI models</span><h3>GPTQ vs AWQ vs GGUF vs EXL2: LLM quantization methods compared</h3><p>How GPTQ, AWQ, GGUF, EXL2/EXL3, bitsandbytes, HQQ and FP8 work, where each runs best, and a scenario-by-scenario guide to picking one.</p><span class="meta">10 min</span></a></li><li><a href="../learn/hardware-for-local-llms.html"><span class="track track-ai">AI models</span><h3>Choosing hardware for local LLMs: memory first, bandwidth second</h3><p>What fits in 8–80 GB at Q4, Q5 and Q8, why memory bandwidth caps tokens per second, and how GPUs, Apple Silicon and CPUs compare.</p><span class="meta">10 min</span></a></li><li><a href="../learn/kv-cache-quantization.html"><span class="track track-ai">AI models</span><h3>KV cache quantization: the memory math and how to do it</h3><p>The KV cache formula, worked Llama 3.1 examples at 8K and 128K context, and how to quantize the cache in llama.cpp, Ollama and vLLM.</p><span class="meta">9 min</span></a></li></ul></section>
+</article>
+</main>
+<footer class="site"><div class="wrap">
+<div class="foot-grid">
+<div><a class="logo" href="../index.html"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x=".5" y=".5" width="31" height="31" rx="8" fill="#121A2E" stroke="var(--rule-2)"/><path d="M5 20c3-11 7-11 11 0s7 11 11 0" fill="none" stroke="var(--signal)" stroke-width="2" opacity=".9"/><path d="M5 22h4v-6h4v-5h6v5h4v6h4" fill="none" stroke="var(--step)" stroke-width="2.4" stroke-linejoin="round"/></svg><span>Quantization<span class="tld">.com</span></span></a>
+<p class="muted small" style="margin-top:12px;max-width:40ch">Calculators, visual explainers and format guides for representing models, signals and sound with fewer bits — and measuring what it costs.</p>
+<form class="js-form inline-form" data-subject="Newsletter signup" data-ok="You're subscribed. The next issue lands next week." style="margin-top:14px">
+<input type="email" name="email" required placeholder="you@example.com" aria-label="Email for the weekly newsletter"><input class="hp" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true"><input type="hidden" name="list" value="Weekly explainer"><button class="btn btn-primary btn-sm" type="submit">Subscribe</button><div class="form-msg" role="status"></div></form></div>
+<div><h4>Tools</h4><ul><li><a href="../tools/vram-calculator.html">LLM VRAM calculator</a></li><li><a href="../tools/quantization-playground.html">Quantization playground</a></li><li><a href="../tools/adc-calculator.html">ADC and bit-depth calculator</a></li><li><a href="../tools/music-quantizer.html">MIDI quantize and swing lab</a></li><li><a href="../tools/energy-levels.html">Energy levels calculator</a></li></ul></div>
+<div><h4>Learn</h4><ul><li><a href="../learn/index.html">All guides</a></li><li><a href="../learn/llm-quantization-guide.html">LLM quantization guide</a></li><li><a href="../formats.html">Formats atlas</a></li><li><a href="../glossary.html">Glossary</a></li><li><a href="../cheat-sheet.html">Cheat sheet</a></li><li><a href="../videos.html">Videos</a></li><li><a href="../resources.html">Resources</a></li></ul></div>
+<div><h4>Get involved</h4><ul><li><a href="../get-optimized.html">Free optimization plan</a></li><li><a href="../challenge.html">Quantization Challenge</a></li><li><a href="../support.html">Support the project</a></li><li><a href="../careers.html">Careers and talent</a></li><li><a href="../advertise.html">Advertise and sponsor</a></li></ul></div>
+<div><h4>Company</h4><ul><li><a href="../about.html">About and editorial policy</a></li><li><a href="../contact.html">Contact</a></li><li><a href="https://web.works/contact" target="_blank" rel="noopener">Buy, partner or sponsor</a></li><li><a href="../privacy.html">Privacy policy</a></li><li><a href="../terms.html">Terms of use</a></li><li><a href="../cookies.html">Cookie policy</a></li><li><a href="../disclaimer.html">Disclaimer</a></li><li><a href="../trademark.html">Trademark and copyright</a></li><li><a href="../sitemap.html">Sitemap</a></li></ul></div>
+</div>
+<div class="legal">
+<p><b>Trademark and copyright disclosure.</b> “Quantization” is a generic scientific and engineering term. Quantization.com claims no exclusive rights in the word and is an independent educational publication, not affiliated with, endorsed by or sponsored by any company, project, product or person that uses the term. Product names, model names and logos mentioned on this site (for example llama.cpp, GGUF, PyTorch, TensorFlow, NVIDIA, Apple, Hugging Face) are trademarks of their respective owners and are used for identification only. <a href="../trademark.html">Read the full disclosure</a>.</p>
+<p>Content is for general education and is not professional engineering, legal or financial advice. This site shows advertising served by Google AdSense. © <span class="year">2026</span> Quantization.com. Original text, tools, code and graphics © Quantization.com unless otherwise credited.</p>
+</div></div></footer>
+<div class="mcta"><a class="btn btn-ghost" href="../tools/vram-calculator.html">VRAM calculator</a><a class="btn btn-primary" href="../get-optimized.html">Free plan</a></div>
+<div class="cookie" id="cookie" role="dialog" aria-label="Cookie choices"><p>We use essential browser storage for site settings and, with your consent, cookies from Google to personalise and measure ads. Choose “Essential only” to receive non-personalised ads. Details in our <a href="../cookies.html">cookie policy</a>.</p>
+<div class="acts"><button class="btn btn-primary btn-sm" type="button" data-consent="all">Accept all</button><button class="btn btn-ghost btn-sm" type="button" data-consent="essential">Essential only</button></div></div>
+<script src="../assets/js/site.js" defer></script>
+</body>
+</html>
