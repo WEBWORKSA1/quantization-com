@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ADC quantization error and SQNR explained | Quantization.com</title>
+<meta name="description" content="How ADC quantization works: LSB size, the ±½ LSB error, the Δ²/12 noise model, the 6.02N + 1.76 dB derivation, ENOB, oversampling and dither, with examples.">
+<link rel="canonical" href="https://quantization.com/learn/adc-quantization-error.html">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#121A2E">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Quantization.com">
+<meta property="og:title" content="ADC quantization error, SQNR and ENOB explained">
+<meta property="og:description" content="How ADC quantization works: LSB size, the ±½ LSB error, the Δ²/12 noise model, the 6.02N + 1.76 dB derivation, ENOB, oversampling and dither, with examples.">
+<meta property="og:url" content="https://quantization.com/learn/adc-quantization-error.html">
+<meta property="og:image" content="https://quantization.com/assets/img/og.svg">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/img/icon.svg">
+<link rel="manifest" href="../site.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wdth,wght@75..100,400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/site.css">
+<script>try{var t=localStorage.getItem('qz-theme');if(t)document.documentElement.setAttribute('data-theme',t);if(localStorage.getItem('qz-consent')==='essential'){(window.adsbygoogle=window.adsbygoogle||[]).requestNonPersonalizedAds=1}}catch(e){}</script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6620975821265271" crossorigin="anonymous"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Quantization.com","url":"https://quantization.com/","logo":"https://quantization.com/assets/img/icon.svg"}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"ADC quantization error, SQNR and ENOB explained","description":"How ADC quantization works: LSB size, the ±½ LSB error, the Δ²/12 noise model, the 6.02N + 1.76 dB derivation, ENOB, oversampling and dither, with examples.","datePublished":"2026-10-27","dateModified":"2026-10-27","wordCount":2135,"author":{"@type":"Organization","name":"Quantization.com editorial team","url":"https://quantization.com/about.html"},"publisher":{"@type":"Organization","name":"Quantization.com","logo":{"@type":"ImageObject","url":"https://quantization.com/assets/img/icon.svg"}},"mainEntityOfPage":"https://quantization.com/learn/adc-quantization-error.html","image":"https://quantization.com/assets/img/og.svg"}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://quantization.com/"},{"@type":"ListItem","position":2,"name":"Learn","item":"https://quantization.com/learn/"},{"@type":"ListItem","position":3,"name":"ADC quantization error, SQNR and ENOB explained","item":"https://quantization.com/learn/adc-quantization-error.html"}]}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is quantization error the same thing as quantization noise?","acceptedAnswer":{"@type":"Answer","text":"Quantization error is the exact, deterministic difference between each sample and its true value. Quantization noise is the statistical model of that error as a random signal with variance Δ²/12. The model is accurate for busy signals and inaccurate for slow, small or clock-locked signals."}},{"@type":"Question","name":"Where does the 1.76 dB in the SQNR formula come from?","acceptedAnswer":{"@type":"Answer","text":"It is 10·log10(1.5). It comes from the ratio of a full-scale sine's RMS value, 2NΔ/(2√2), to the noise RMS, Δ/√12. The 2N part becomes 6.02N dB. The constant √12/(2√2) = √1.5 becomes 1.76 dB."}},{"@type":"Question","name":"Does doubling the sample rate give one more bit?","acceptedAnswer":{"@type":"Answer","text":"No. Plain oversampling with filtering adds 3.01 dB per doubling, which is half a bit. One extra bit needs 4× the rate. Noise-shaping converters improve faster than that, depending on loop order."}},{"@type":"Question","name":"Why is my converter's ENOB lower than its resolution?","acceptedAnswer":{"@type":"Answer","text":"SINAD includes thermal noise, reference noise, clock jitter and harmonic distortion as well as quantization noise. At 16 bits and above these usually dominate, so measured ENOB falls below N."}}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="ownerbar" role="note"><a href="https://web.works/contact" target="_blank" rel="noopener">Contact, if you are interested in this website/domain name/Sponsorship/Advertisement/Partnership</a></div>
+<header class="site"><div class="wrap nav">
+<a class="logo" href="../index.html" aria-label="Quantization.com home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x=".5" y=".5" width="31" height="31" rx="8" fill="#121A2E" stroke="var(--rule-2)"/><path d="M5 20c3-11 7-11 11 0s7 11 11 0" fill="none" stroke="var(--signal)" stroke-width="2" opacity=".9"/><path d="M5 22h4v-6h4v-5h6v5h4v6h4" fill="none" stroke="var(--step)" stroke-width="2.4" stroke-linejoin="round"/></svg><span>Quantization<span class="tld">.com</span></span></a>
+<ul class="menu" id="menu"><li><a href="../index.html">Home</a></li><li><a href="../tools/index.html">Tools</a></li><li><a href="../learn/index.html" class="active" aria-current="page">Learn</a></li><li><a href="../formats.html">Formats</a></li><li><a href="../videos.html">Videos</a></li><li><a href="../resources.html">Resources</a></li><li><a href="../challenge.html">Challenge</a></li><li><a href="../support.html">Support</a></li></ul>
+<div class="nav-cta"><a class="btn btn-primary btn-sm btn-head" href="../get-optimized.html">Free optimization plan</a>
+<button class="icon-btn" id="themeBtn" type="button" aria-label="Switch light or dark theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 4v16" /><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg></button>
+<button class="icon-btn burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button></div>
+</div></header>
+<main id="main">
+<nav class="crumbs wrap" aria-label="Breadcrumb"><a href="../index.html">Home</a> <span aria-hidden="true">/</span> <a href="../learn/index.html">Learn</a> <span aria-hidden="true">/</span> <span aria-current="page">ADC quantization error, SQNR and ENOB explained</span></nav>
+<article class="wrap">
+<header class="art-head">
+<span class="track track-signal">Signals & audio</span>
+<h1>ADC quantization error, SQNR and ENOB explained</h1>
+<div class="art-meta"><span>By the Quantization.com editorial team</span><span>Updated <time datetime="2026-10-27">October 27, 2026</time></span><span>9 min read</span></div>
+</header>
+<div class="art-layout">
+<div class="prose">
+<p class="lede">An analog-to-digital converter (ADC) rounds every sample to one of 2<sup>N</sup> levels, so even a perfect converter is wrong by up to half a step. That rounding error, quantization error, sets the best signal-to-noise ratio an ideal N-bit converter can reach: 6.02N + 1.76 dB for a full-scale sine wave. This guide derives that number, shows where it breaks down, and explains how ENOB, oversampling and dither build on it.</p>
+
+<h2 id="sampling-quantization-lsb">Sampling, quantization and LSB size</h2>
+<p>Digitizing discretizes two axes. <strong>Sampling</strong> takes snapshots at a fixed rate f<sub>s</sub>, discretizing time. <strong>Quantization</strong> maps each snapshot's amplitude onto a finite set of levels, discretizing amplitude. The two steps fail in different ways.</p>
+<p>Sampling is reversible in principle: if the input has nothing above f<sub>s</sub>/2, the samples hold everything needed to rebuild it. Quantization is not. Once 1.0003 V is stored as one code, the extra fraction is gone from that sample for good. For the general idea, which also underlies AI model compression, see <a href="../learn/what-is-quantization.html">what is quantization</a>.</p>
+
+<h3>LSB size and the quantizer staircase</h3>
+<p>An N-bit converter splits its full-scale range (FSR) into 2<sup>N</sup> equal steps. One step is the least significant bit, written LSB, q or Δ:</p>
+<div class="formula">LSB = Δ = FSR / 2<sup>N</sup></div>
+<p class="formula-note">FSR is the span of input voltage the converter accepts, usually set by its reference. Because the codes run from 0 to 2<sup>N</sup> − 1, the all-ones code sits one LSB below analog full scale.</p>
+
+<div class="example"><h3>Worked example: a 12-bit ADC with a 3.3 V reference</h3>
+<p>Unipolar input range 0 to 3.3 V, N = 12, so 2<sup>12</sup> = 4,096 codes.</p>
+<ul>
+<li>LSB = 3.3 V / 4,096 = 0.80566 mV ≈ <strong>0.806 mV</strong></li>
+<li>Maximum rounding error = ±½ LSB = ±0.403 mV</li>
+<li>RMS quantization noise = 0.806 mV / √12 ≈ 0.233 mV</li>
+<li>A 1.000 V input: 1,000 mV / 0.80566 mV = 1,241.21, which rounds to code 1,241. That code represents 1,241 × 0.80566 mV = 999.83 mV, an error of −0.17 mV, inside the ±0.403 mV bound.</li>
+</ul></div>
+
+<div class="table-wrap"><table><caption>LSB size for a 3.3 V full-scale range</caption><thead><tr><th>Bits (N)</th><th>Levels (2<sup>N</sup>)</th><th>LSB</th></tr></thead><tbody>
+<tr><td>8</td><td>256</td><td>12.9 mV</td></tr>
+<tr><td>10</td><td>1,024</td><td>3.22 mV</td></tr>
+<tr><td>12</td><td>4,096</td><td>0.806 mV</td></tr>
+<tr><td>16</td><td>65,536</td><td>50.4 µV</td></tr>
+<tr><td>24</td><td>16,777,216</td><td>0.197 µV</td></tr>
+</tbody></table></div>
+
+<h3>Mid-tread and mid-rise quantizers</h3>
+<p>There are two standard ways to place the levels of a uniform quantizer:</p>
+<div class="formula">mid-tread: x<sub>Q</sub> = Δ · ⌊x/Δ + ½⌋ &nbsp;&nbsp; mid-rise: x<sub>Q</sub> = Δ · (⌊x/Δ⌋ + ½)</div>
+<p>A <strong>mid-tread</strong> quantizer has a flat step centred on zero, so inputs within ±Δ/2 read as exactly zero. With an even number of codes it cannot be symmetric: two's-complement output has one more negative code than positive. A <strong>mid-rise</strong> quantizer puts a step edge at zero, giving outputs of ±Δ/2, ±3Δ/2 and so on. It is symmetric but has no zero, so a near-silent input toggles between +Δ/2 and −Δ/2.</p>
+<aside class="warn"><p>A quantizer that truncates (always rounds down) instead of rounding to nearest has an error between 0 and −1 LSB rather than ±½ LSB. The error's variance is still Δ²/12, but its mean is −½ LSB, which shows up as a dc offset.</p></aside>
+
+<h2 id="error-and-noise-model">Quantization error and the uniform noise model</h2>
+<p>Define the error as e = x<sub>Q</sub> − x. For any input inside the range, an ideal rounding quantizer keeps |e| ≤ Δ/2. Outside the range the converter clips and the error is unbounded; that is overload, a separate problem.</p>
+<p>To predict the noise a converter adds, engineers model e as a random variable spread uniformly between −Δ/2 and +Δ/2. Its probability density is 1/Δ on that interval, so:</p>
+<div class="formula">mean = 0 &nbsp;&nbsp; σ<sub>e</sub><sup>2</sup> = ∫ e<sup>2</sup> (1/Δ) de (from −Δ/2 to +Δ/2) = Δ<sup>2</sup>/12</div>
+<div class="formula">e<sub>rms</sub> = Δ / √12 ≈ 0.289 LSB</div>
+<p>Analog Devices' tutorials reach the same result another way, by treating the error as a sawtooth and averaging its square over one period. The model also treats the noise as white, spread evenly from dc to f<sub>s</sub>/2.</p>
+<h3>When the model is valid</h3>
+<p>The uniform, signal-independent model is an approximation. It holds when the input is "busy": it crosses many LSBs between samples and has no simple relationship to the sample clock. Analog Devices' MT-229 says it holds in most cases with N &gt; 6 when the input frequency is not an exact submultiple of f<sub>s</sub>. It breaks down for slowly changing or very small signals, and for tones locked to the sample rate. In those cases the error repeats with the signal and appears as harmonic distortion rather than a smooth noise floor. That failure is what dither fixes, as covered further down.</p>
+
+<div class="cta-box"><div><h3>One clear explainer a week</h3><p>New tools, guides and formats across AI, signals, audio and physics. No spam; unsubscribe any time.</p></div>
+<form class="js-form inline-form" data-subject="Newsletter signup" data-ok="You're subscribed. The next issue lands next week."><input type="email" name="email" required placeholder="you@example.com" aria-label="Email address"><input class="hp" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true"><input type="hidden" name="list" value="Weekly explainer"><button class="btn btn-primary" type="submit">Subscribe</button><div class="form-msg" role="status"></div></form></div>
+
+<h2 id="sqnr-derivation">Deriving SQNR = 6.02N + 1.76 dB</h2>
+<p>Ideal signal-to-quantization-noise ratio (SQNR) is quoted for a sine that exactly fills the input range. The derivation takes five lines.</p>
+<ol>
+<li>The full range is 2<sup>N</sup>Δ peak to peak, so the sine's peak amplitude is A = 2<sup>N</sup>Δ/2.</li>
+<li>The RMS of a sine is its peak divided by √2: S<sub>rms</sub> = 2<sup>N</sup>Δ / (2√2).</li>
+<li>From the noise model, N<sub>rms</sub> = Δ/√12.</li>
+<li>Divide them. Δ cancels: S<sub>rms</sub>/N<sub>rms</sub> = 2<sup>N</sup> · √12/(2√2) = 2<sup>N</sup> · √1.5.</li>
+<li>Convert to decibels: SQNR = 20·log<sub>10</sub>(2<sup>N</sup>) + 20·log<sub>10</sub>(√1.5) = N · 20·log<sub>10</sub>2 + 10·log<sub>10</sub>1.5.</li>
+</ol>
+<div class="formula">SQNR = 6.02N + 1.76 dB</div>
+<p class="formula-note">6.02 = 20·log<sub>10</sub>2 (each bit doubles the number of levels, halving the noise amplitude). 1.76 = 10·log<sub>10</sub>1.5 (the ratio of a full-scale sine's power to the noise power at N = 0). The noise is measured over the full Nyquist band, dc to f<sub>s</sub>/2.</p>
+
+<div class="example"><h3>Worked example: 16-bit and 24-bit ideal SQNR</h3>
+<ul>
+<li>12-bit: 6.02 × 12 + 1.76 = <strong>74.0 dB</strong></li>
+<li>16-bit: 6.02 × 16 + 1.76 = 96.32 + 1.76 = <strong>98.1 dB</strong></li>
+<li>24-bit: 6.02 × 24 + 1.76 = 144.48 + 1.76 = <strong>146.2 dB</strong> (146.3 dB with unrounded constants)</li>
+</ul>
+<p>These are ceilings for a full-scale input. SQNR falls one decibel for every decibel the signal is below full scale: a sine at −20 dBFS on an ideal 16-bit converter has about 78 dB SQNR.</p></div>
+
+<h2 id="enob">ENOB: turning a measured SINAD into bits</h2>
+<p>Real converters add thermal noise, reference noise, clock jitter and distortion. Datasheets capture all of it in SINAD (signal to noise and distortion), measured with a near-full-scale sine. Solving the SQNR equation for N gives the effective number of bits:</p>
+<div class="formula">ENOB = (SINAD − 1.76) / 6.02</div>
+<p>If a 14-bit converter measures 70 dB SINAD, its ENOB is (70 − 1.76)/6.02 ≈ 11.3 bits. The extra 2.7 bits of resolution are real codes, but their information is buried in noise. When the test tone is below full scale, Analog Devices' MT-003 adds the shortfall back first: ENOB = (SINAD + 20·log<sub>10</sub>(full scale / input amplitude) − 1.76)/6.02.</p>
+<p>The gap widens at high resolution. With a 10 V range, a 24-bit LSB is 596 nV (MT-010), while a 2.2 kΩ resistor at room temperature produces about 0.6 µV RMS of Johnson noise in 10 kHz, √(4kTRB). Thermal noise alone fills an LSB, so no 24-bit converter reaches 146 dB.</p>
+<div class="cta-box"><div><h3>Try it: ADC and bit-depth calculator</h3><p>LSB size, ideal SNR, ENOB from measured SINAD, oversampling gain and audio file size in one panel.</p></div><a class="btn btn-ghost" href="../tools/adc-calculator.html">Open the tool</a></div>
+
+<h2 id="oversampling-noise-shaping">Oversampling and noise shaping</h2>
+<p>The 6.02N + 1.76 dB figure counts noise from dc to f<sub>s</sub>/2. If your signal occupies only a bandwidth BW, a digital low-pass filter can remove the noise above it. The gain, called process gain, is:</p>
+<div class="formula">SNR = 6.02N + 1.76 dB + 10·log<sub>10</sub>(f<sub>s</sub> / 2BW)</div>
+<p class="formula-note">f<sub>s</sub>/2BW is the oversampling ratio (OSR). Each doubling of OSR adds 10·log<sub>10</sub>2 = 3.01 dB, which is half a bit.</p>
+<p>Oversampling alone is expensive: one extra bit takes 4× the rate, four bits take 256×. MT-001's example samples at 65 MSPS for a 30 kHz channel. That is an OSR of about 1,083 and a process gain of 10·log<sub>10</sub>(1,083) ≈ 30.3 dB.</p>
+<p>Delta-sigma (sigma-delta) converters do better with <strong>noise shaping</strong>. A feedback loop around a coarse quantizer, often a 1-bit comparator, uses an integrator that passes the signal but pushes the quantization noise toward high frequencies. A digital decimation filter then removes most of that noise. MT-022 plots SNR against OSR: roughly 9 dB per doubling for a first-order loop and 15 dB per doubling for a second-order loop, compared with 3 dB for plain oversampling. Its example is an ideal second-order modulator at OSR 64, reaching about 80 dB (about 13 ENOB). Plain oversampling at the same ratio gains only 18 dB.</p>
+<aside class="note"><p>Oversampling gain assumes the error really is white noise. A perfectly steady, noise-free input gives the same code every time, and averaging identical codes gains nothing.</p></aside>
+
+<h2 id="dither-in-measurement">Dither: trading noise for resolution</h2>
+<p>Dither is a small random signal added before quantization so that the error behaves like noise again. Take the 12-bit, 3.3 V converter above with a steady input at 1,241.3 LSB. Without noise it reads 1,241 every time, and averaging leaves a permanent −0.3 LSB error. Add random noise of roughly half an LSB to one LSB RMS, and the output toggles among neighbouring codes: mostly 1,241, often 1,242, sometimes 1,240. The average of many readings moves toward 1,241.3. Each reading is noisier, but the average resolves fractions of an LSB.</p>
+<p>Steven W. Smith's <em>DSP Guide</em> notes that the analog noise already present is often enough to act as dither. Elaborate systems use <em>subtractive</em> dither: a known random sequence is added before the ADC and subtracted digitally afterwards, keeping the linearizing benefit without most of the added noise. Audio uses dither for a different goal, removing audible distortion when reducing word length. That is covered in <a href="../learn/audio-bit-depth-dither.html">audio bit depth and dither</a>.</p>
+<p>To watch the staircase, error and SQNR change with bit depth, try the <a href="../tools/quantization-playground.html">quantization playground</a>.</p>
+
+<div class="takeaways"><h2 id="takeaways">Key takeaways</h2><ul>
+<li>LSB = FSR / 2<sup>N</sup>; a 12-bit converter with a 3.3 V range has an LSB of about 0.806 mV.</li>
+<li>An ideal rounding quantizer is never wrong by more than ±½ LSB inside its range.</li>
+<li>Modeled as uniform noise, the error has variance Δ²/12 and an RMS value of Δ/√12 ≈ 0.29 LSB.</li>
+<li>Ideal SQNR for a full-scale sine is 6.02N + 1.76 dB: 74 dB at 12 bits, 98 dB at 16, 146 dB at 24.</li>
+<li>ENOB = (SINAD − 1.76)/6.02 converts real performance back into bits.</li>
+<li>Oversampling adds 3 dB (half a bit) per doubling; noise-shaping delta-sigma loops add much more.</li>
+<li>Dither keeps the error noise-like, which makes averaging work below one LSB.</li>
+</ul></div>
+
+<section class="faq"><h2 id="faq">Frequently asked questions</h2>
+<details><summary>Is quantization error the same thing as quantization noise?</summary><p>Quantization error is the exact, deterministic difference between each sample and its true value. Quantization noise is the statistical model of that error as a random signal with variance Δ²/12. The model is accurate for busy signals and inaccurate for slow, small or clock-locked signals.</p></details>
+<details><summary>Where does the 1.76 dB in the SQNR formula come from?</summary><p>It is 10·log<sub>10</sub>(1.5). It comes from the ratio of a full-scale sine's RMS value, 2<sup>N</sup>Δ/(2√2), to the noise RMS, Δ/√12. The 2<sup>N</sup> part becomes 6.02N dB. The constant √12/(2√2) = √1.5 becomes 1.76 dB.</p></details>
+<details><summary>Does doubling the sample rate give one more bit?</summary><p>No. Plain oversampling with filtering adds 3.01 dB per doubling, which is half a bit. One extra bit needs 4× the rate. Noise-shaping converters improve faster than that, depending on loop order.</p></details>
+<details><summary>Why is my converter's ENOB lower than its resolution?</summary><p>SINAD includes thermal noise, reference noise, clock jitter and harmonic distortion as well as quantization noise. At 16 bits and above these usually dominate, so measured ENOB falls below N.</p></details>
+</section>
+
+<section class="sources"><h2 id="sources">Sources and further reading</h2><ol>
+<li><a href="https://www.analog.com/media/en/training-seminars/tutorials/MT-001.pdf" rel="noopener" target="_blank">Analog Devices MT-001: Taking the mystery out of SNR = 6.02N + 1.76 dB</a> — sawtooth derivation, Nyquist-band assumption and process gain</li>
+<li><a href="https://www.analog.com/media/en/training-seminars/tutorials/MT-229.pdf" rel="noopener" target="_blank">Analog Devices MT-229: Quantization noise, an expanded derivation</a> — step-by-step algebra and conditions for the uncorrelated-noise model</li>
+<li><a href="https://www.analog.com/media/en/training-seminars/tutorials/MT-003.pdf" rel="noopener" target="_blank">Analog Devices MT-003: SINAD, ENOB, SNR, THD, THD + N and SFDR</a> — ENOB definition and below-full-scale correction</li>
+<li><a href="https://www.analog.com/media/en/training-seminars/tutorials/MT-010.pdf" rel="noopener" target="_blank">Analog Devices MT-010: Data converter static specifications</a> — LSB size tables and the all-ones code convention</li>
+<li><a href="https://www.analog.com/media/en/training-seminars/tutorials/MT-022.pdf" rel="noopener" target="_blank">Analog Devices MT-022: Sigma-delta ADC basics</a> — oversampling, noise shaping and SNR versus loop order</li>
+<li><a href="https://www.dspguide.com/ch3.htm" rel="noopener" target="_blank">Steven W. Smith, The Scientist and Engineer's Guide to DSP, chapter 3</a> — quantization as additive noise, its failure for slow signals, and dithering</li>
+<li><a href="https://nbviewer.jupyter.org/github/spatialaudio/digital-signal-processing-lecture/blob/master/quantization/linear_uniform_characteristic.ipynb" rel="noopener" target="_blank">Sascha Spors, DSP lecture notes: linear uniform quantization</a> — mid-tread and mid-rise definitions with code</li>
+<li><a href="https://www.ti.com/video/6117424453001" rel="noopener" target="_blank">TI Precision Labs: Types of noise in ADCs</a> — quantization noise versus thermal noise in practical converters</li>
+</ol></section>
+
+<div class="byline"><div><b>About this guide.</b> Written and fact-checked by the Quantization.com editorial team against the primary sources listed above. Spotted an error or an outdated command? <a href="../contact.html?topic=Correction">Send a correction</a> — we fix verified issues within a few days. See our <a href="../about.html#editorial-policy">editorial policy</a>.</div></div>
+<div class="share" aria-label="Share this page"><a class="btn btn-ghost btn-sm" data-share="copy" href="#">Copy link</a><a class="btn btn-ghost btn-sm" data-share="x" href="#">Post on X</a><a class="btn btn-ghost btn-sm" data-share="linkedin" href="#">LinkedIn</a><a class="btn btn-ghost btn-sm" data-share="reddit" href="#">Reddit</a><a class="btn btn-ghost btn-sm" data-share="hn" href="#">Hacker News</a></div>
+</div>
+<aside class="art-side"><nav class="toc" aria-label="On this page"><h2>On this page</h2><ol><li><a href="#sampling-quantization-lsb">Sampling, quantization and LSB size</a></li><li><a href="#error-and-noise-model">Quantization error and the uniform noise model</a></li><li><a href="#sqnr-derivation">Deriving SQNR = 6.02N + 1.76 dB</a></li><li><a href="#enob">ENOB: turning a measured SINAD into bits</a></li><li><a href="#oversampling-noise-shaping">Oversampling and noise shaping</a></li><li><a href="#dither-in-measurement">Dither: trading noise for resolution</a></li><li><a href="#takeaways">Key takeaways</a></li><li><a href="#faq">Frequently asked questions</a></li><li><a href="#sources">Sources and further reading</a></li></ol></nav><div class="side-cta"><h3>Try the tools</h3><p>Every formula on this page has a live calculator.</p><a class="btn btn-ghost btn-sm" href="../tools/index.html">Open the tools</a></div></aside>
+</div>
+<section class="related"><h2>Keep reading</h2><ul class="alist"><li><a href="../learn/audio-bit-depth-dither.html"><span class="track track-signal">Signals & audio</span><h3>Audio bit depth and dither: 16-bit, 24-bit, 32-bit float</h3><p>What 16, 24 and 32-bit float really give you, why dither beats truncation, which dither to use, and how to calculate audio file size.</p><span class="meta">9 min</span></a></li><li><a href="../learn/gguf-quant-types.html"><span class="track track-ai">AI models</span><h3>GGUF quant types explained: legacy, k-quants and i-quants</h3><p>Decode GGUF names like Q4_K_M and IQ3_XXS, compare bits per weight, and learn to pick and build the right llama.cpp quant.</p><span class="meta">9 min</span></a></li><li><a href="../learn/gptq-vs-awq-vs-gguf.html"><span class="track track-ai">AI models</span><h3>GPTQ vs AWQ vs GGUF vs EXL2: LLM quantization methods compared</h3><p>How GPTQ, AWQ, GGUF, EXL2/EXL3, bitsandbytes, HQQ and FP8 work, where each runs best, and a scenario-by-scenario guide to picking one.</p><span class="meta">10 min</span></a></li><li><a href="../learn/hardware-for-local-llms.html"><span class="track track-ai">AI models</span><h3>Choosing hardware for local LLMs: memory first, bandwidth second</h3><p>What fits in 8–80 GB at Q4, Q5 and Q8, why memory bandwidth caps tokens per second, and how GPUs, Apple Silicon and CPUs compare.</p><span class="meta">10 min</span></a></li></ul></section>
+</article>
+</main>
+<footer class="site"><div class="wrap">
+<div class="foot-grid">
+<div><a class="logo" href="../index.html"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x=".5" y=".5" width="31" height="31" rx="8" fill="#121A2E" stroke="var(--rule-2)"/><path d="M5 20c3-11 7-11 11 0s7 11 11 0" fill="none" stroke="var(--signal)" stroke-width="2" opacity=".9"/><path d="M5 22h4v-6h4v-5h6v5h4v6h4" fill="none" stroke="var(--step)" stroke-width="2.4" stroke-linejoin="round"/></svg><span>Quantization<span class="tld">.com</span></span></a>
+<p class="muted small" style="margin-top:12px;max-width:40ch">Calculators, visual explainers and format guides for representing models, signals and sound with fewer bits — and measuring what it costs.</p>
+<form class="js-form inline-form" data-subject="Newsletter signup" data-ok="You're subscribed. The next issue lands next week." style="margin-top:14px">
+<input type="email" name="email" required placeholder="you@example.com" aria-label="Email for the weekly newsletter"><input class="hp" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true"><input type="hidden" name="list" value="Weekly explainer"><button class="btn btn-primary btn-sm" type="submit">Subscribe</button><div class="form-msg" role="status"></div></form></div>
+<div><h4>Tools</h4><ul><li><a href="../tools/vram-calculator.html">LLM VRAM calculator</a></li><li><a href="../tools/quantization-playground.html">Quantization playground</a></li><li><a href="../tools/adc-calculator.html">ADC and bit-depth calculator</a></li><li><a href="../tools/music-quantizer.html">MIDI quantize and swing lab</a></li><li><a href="../tools/energy-levels.html">Energy levels calculator</a></li></ul></div>
+<div><h4>Learn</h4><ul><li><a href="../learn/index.html">All guides</a></li><li><a href="../learn/llm-quantization-guide.html">LLM quantization guide</a></li><li><a href="../formats.html">Formats atlas</a></li><li><a href="../glossary.html">Glossary</a></li><li><a href="../cheat-sheet.html">Cheat sheet</a></li><li><a href="../videos.html">Videos</a></li><li><a href="../resources.html">Resources</a></li></ul></div>
+<div><h4>Get involved</h4><ul><li><a href="../get-optimized.html">Free optimization plan</a></li><li><a href="../challenge.html">Quantization Challenge</a></li><li><a href="../support.html">Support the project</a></li><li><a href="../careers.html">Careers and talent</a></li><li><a href="../advertise.html">Advertise and sponsor</a></li></ul></div>
+<div><h4>Company</h4><ul><li><a href="../about.html">About and editorial policy</a></li><li><a href="../contact.html">Contact</a></li><li><a href="https://web.works/contact" target="_blank" rel="noopener">Buy, partner or sponsor</a></li><li><a href="../privacy.html">Privacy policy</a></li><li><a href="../terms.html">Terms of use</a></li><li><a href="../cookies.html">Cookie policy</a></li><li><a href="../disclaimer.html">Disclaimer</a></li><li><a href="../trademark.html">Trademark and copyright</a></li><li><a href="../sitemap.html">Sitemap</a></li></ul></div>
+</div>
+<div class="legal">
+<p><b>Trademark and copyright disclosure.</b> “Quantization” is a generic scientific and engineering term. Quantization.com claims no exclusive rights in the word and is an independent educational publication, not affiliated with, endorsed by or sponsored by any company, project, product or person that uses the term. Product names, model names and logos mentioned on this site (for example llama.cpp, GGUF, PyTorch, TensorFlow, NVIDIA, Apple, Hugging Face) are trademarks of their respective owners and are used for identification only. <a href="../trademark.html">Read the full disclosure</a>.</p>
+<p>Content is for general education and is not professional engineering, legal or financial advice. This site shows advertising served by Google AdSense. © <span class="year">2026</span> Quantization.com. Original text, tools, code and graphics © Quantization.com unless otherwise credited.</p>
+</div></div></footer>
+<div class="mcta"><a class="btn btn-ghost" href="../tools/vram-calculator.html">VRAM calculator</a><a class="btn btn-primary" href="../get-optimized.html">Free plan</a></div>
+<div class="cookie" id="cookie" role="dialog" aria-label="Cookie choices"><p>We use essential browser storage for site settings and, with your consent, cookies from Google to personalise and measure ads. Choose “Essential only” to receive non-personalised ads. Details in our <a href="../cookies.html">cookie policy</a>.</p>
+<div class="acts"><button class="btn btn-primary btn-sm" type="button" data-consent="all">Accept all</button><button class="btn btn-ghost btn-sm" type="button" data-consent="essential">Essential only</button></div></div>
+<script src="../assets/js/site.js" defer></script>
+</body>
+</html>
