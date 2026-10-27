@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>What is quantization? A cross-domain guide | Quantization.com</title>
+<meta name="description" content="Quantization maps continuous values to a finite set of levels. Learn step size, scale, zero-point and error math, and how AI, audio, music and physics use it.">
+<link rel="canonical" href="https://quantization.com/learn/what-is-quantization.html">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#121A2E">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Quantization.com">
+<meta property="og:title" content="What is quantization? One idea behind AI, audio, music and physics">
+<meta property="og:description" content="Quantization maps continuous values to a finite set of levels. Learn step size, scale, zero-point and error math, and how AI, audio, music and physics use it.">
+<meta property="og:url" content="https://quantization.com/learn/what-is-quantization.html">
+<meta property="og:image" content="https://quantization.com/assets/img/og.svg">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/img/icon.svg">
+<link rel="manifest" href="../site.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wdth,wght@75..100,400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/site.css">
+<script>try{var t=localStorage.getItem('qz-theme');if(t)document.documentElement.setAttribute('data-theme',t);if(localStorage.getItem('qz-consent')==='essential'){(window.adsbygoogle=window.adsbygoogle||[]).requestNonPersonalizedAds=1}}catch(e){}</script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6620975821265271" crossorigin="anonymous"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Quantization.com","url":"https://quantization.com/","logo":"https://quantization.com/assets/img/icon.svg"}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"What is quantization? One idea behind AI, audio, music and physics","description":"Quantization maps continuous values to a finite set of levels. Learn step size, scale, zero-point and error math, and how AI, audio, music and physics use it.","datePublished":"2026-10-27","dateModified":"2026-10-27","wordCount":2153,"author":{"@type":"Organization","name":"Quantization.com editorial team","url":"https://quantization.com/about.html"},"publisher":{"@type":"Organization","name":"Quantization.com","logo":{"@type":"ImageObject","url":"https://quantization.com/assets/img/icon.svg"}},"mainEntityOfPage":"https://quantization.com/learn/what-is-quantization.html","image":"https://quantization.com/assets/img/og.svg"}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://quantization.com/"},{"@type":"ListItem","position":2,"name":"Learn","item":"https://quantization.com/learn/"},{"@type":"ListItem","position":3,"name":"What is quantization? One idea behind AI, audio, music and physics","item":"https://quantization.com/learn/what-is-quantization.html"}]}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is quantization the same as sampling?","acceptedAnswer":{"@type":"Answer","text":"No. Sampling makes time discrete. Quantization makes values discrete. Digital audio uses both, while model weights only need quantization."}},{"@type":"Question","name":"Why is quantization noise Δ²/12?","acceptedAnswer":{"@type":"Answer","text":"If the rounding error is spread evenly between −Δ/2 and +Δ/2, the mean of its square works out to Δ²/12. That holds for busy signals that cross many levels. It fails for tiny, constant or grid-locked signals."}},{"@type":"Question","name":"What does \"4-bit\" mean for an AI model?","acceptedAnswer":{"@type":"Answer","text":"Each weight is stored as one of 16 integer codes, and the codes in a block share a higher-precision scale. With the scales included, practical 4-bit formats use roughly 4.1–5 bits per weight, depending on block size and scale format."}},{"@type":"Question","name":"How many decibels does each extra bit add?","acceptedAnswer":{"@type":"Answer","text":"About 6.02 dB. An ideal N-bit quantizer with a full-scale sine input reaches about 6.02N + 1.76 dB: roughly 98 dB at 16 bits."}}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="ownerbar" role="note"><a href="https://web.works/contact" target="_blank" rel="noopener">Contact, if you are interested in this website/domain name/Sponsorship/Advertisement/Partnership</a></div>
+<header class="site"><div class="wrap nav">
+<a class="logo" href="../index.html" aria-label="Quantization.com home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x=".5" y=".5" width="31" height="31" rx="8" fill="#121A2E" stroke="var(--rule-2)"/><path d="M5 20c3-11 7-11 11 0s7 11 11 0" fill="none" stroke="var(--signal)" stroke-width="2" opacity=".9"/><path d="M5 22h4v-6h4v-5h6v5h4v6h4" fill="none" stroke="var(--step)" stroke-width="2.4" stroke-linejoin="round"/></svg><span>Quantization<span class="tld">.com</span></span></a>
+<ul class="menu" id="menu"><li><a href="../index.html">Home</a></li><li><a href="../tools/index.html">Tools</a></li><li><a href="../learn/index.html" class="active" aria-current="page">Learn</a></li><li><a href="../formats.html">Formats</a></li><li><a href="../videos.html">Videos</a></li><li><a href="../resources.html">Resources</a></li><li><a href="../challenge.html">Challenge</a></li><li><a href="../support.html">Support</a></li></ul>
+<div class="nav-cta"><a class="btn btn-primary btn-sm btn-head" href="../get-optimized.html">Free optimization plan</a>
+<button class="icon-btn" id="themeBtn" type="button" aria-label="Switch light or dark theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 4v16" /><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg></button>
+<button class="icon-btn burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button></div>
+</div></header>
+<main id="main">
+<nav class="crumbs wrap" aria-label="Breadcrumb"><a href="../index.html">Home</a> <span aria-hidden="true">/</span> <a href="../learn/index.html">Learn</a> <span aria-hidden="true">/</span> <span aria-current="page">What is quantization? One idea behind AI, audio, music and physics</span></nav>
+<article class="wrap">
+<header class="art-head">
+<span class="track track-general">Foundations</span>
+<h1>What is quantization? One idea behind AI, audio, music and physics</h1>
+<div class="art-meta"><span>By the Quantization.com editorial team</span><span>Updated <time datetime="2026-10-27">October 27, 2026</time></span><span>9 min read</span></div>
+</header>
+<div class="art-layout">
+<div class="prose">
+<p class="lede">Quantization replaces a value that could be anything within a range with the nearest member of a small, fixed set of allowed values, and digital audio, 4-bit language models and snapped MIDI notes all depend on it. Physics uses the word for something deeper: some systems can only have certain energies. Here is the core math, a worked example, and how each field applies it.</p>
+
+<h2 id="what-quantization-means">What quantization means</h2>
+<p>A quantizer takes an input that is continuous, or far finer than you want to store, and outputs one of <em>L</em> allowed levels. You store only the integer <em>index</em> of the level, which costs log<sub>2</sub>(<em>L</em>) bits: 16 levels need 4 bits, 256 need 8, and 65,536 need 16.</p>
+<p>The loss is permanent. Many inputs map to the same level, and the index can't tell you which one it came from. You accept that in exchange for a compact, fixed-size representation. The design question is how many levels you need, and where to put them, so the loss doesn't matter for the task.</p>
+<ul>
+<li><strong>Sampling vs quantization.</strong> Sampling makes <em>time</em> discrete. Quantization makes the <em>value</em> discrete. Digital audio needs both, while a neural network's weights need only quantization.</li>
+<li><strong>Uniform vs non-uniform.</strong> Uniform quantizers space their levels equally. Floating-point formats and QLoRA's NF4 put levels where values are most common. See <a href="../learn/number-formats.html">number formats</a>.</li>
+</ul>
+
+<h2 id="uniform-quantization-math">The math of uniform quantization</h2>
+<h3>Step size, rounding and clipping</h3>
+<p>A uniform quantizer has a <strong>step size</strong> Δ (the gap between levels) and a range. With <em>b</em> bits there are 2<sup><em>b</em></sup> levels. To quantize a value, divide by Δ, round to the nearest integer, and clamp to the representable range:</p>
+<div class="formula">q = clamp(round(x / Δ), q<sub>min</sub>, q<sub>max</sub>) &nbsp;&nbsp;→&nbsp;&nbsp; x̂ = Δ · q</div>
+<p>There are two kinds of error. <strong>Granular (rounding) error</strong> is never more than Δ/2. <strong>Clipping (overload) error</strong> happens when an input lies outside the range and is pinned to the end level, and it has no bound. A wider range avoids clipping but enlarges Δ for every other value. Choosing the range is called calibration in machine learning and gain staging in audio, and the trade-off is the same.</p>
+
+<h3>Scale and zero-point</h3>
+<p>Machine-learning frameworks call Δ the <strong>scale</strong> S and add an integer <strong>zero-point</strong> Z, so that unsigned codes can cover an interval that isn't centred on zero. This is the affine scheme r = S(q − Z) used by Jacob et al. for integer-only inference:</p>
+<div class="formula">S = (x<sub>max</sub> − x<sub>min</sub>) / (2<sup>b</sup> − 1) &nbsp;&nbsp; Z = round(−x<sub>min</sub> / S)</div>
+<div class="formula">q = clamp(round(x / S) + Z, 0, 2<sup>b</sup> − 1) &nbsp;&nbsp; x̂ = S · (q − Z)</div>
+<p>Because Z is an integer, real zero always comes back as exactly 0. Padding, ReLU outputs and pruned weights depend on that. A <strong>symmetric</strong> quantizer sets Z = 0 and uses a range of ±max|x|, which is simpler to compute but wastes levels when the data is lopsided.</p>
+
+<h3>The error model: why Δ²/12</h3>
+<p>If the input moves across many levels and isn't locked to the grid, the rounding error e = x̂ − x behaves like a variable spread evenly over [−Δ/2, +Δ/2]:</p>
+<div class="formula">σ<sub>e</sub><sup>2</sup> = (1/Δ) ∫<sub>−Δ/2</sub><sup>+Δ/2</sup> e<sup>2</sup> de = Δ<sup>2</sup> / 12 &nbsp;&nbsp; RMS error = Δ / √12</div>
+<p>Each extra bit halves Δ, which cuts noise power to a quarter, a drop of about 6.02 dB. For a full-scale sine wave, an ideal N-bit quantizer achieves:</p>
+<div class="formula">SQNR ≈ 6.02 · N + 1.76 dB</div>
+<p class="formula-note">This assumes a full-scale sine input, with noise measured from DC up to half the sample rate. Gray and Neuhoff call the per-bit gain the "6-dB-per-bit rule."</p>
+<p>The model breaks down when the signal is small relative to Δ, nearly constant, or repeats in step with the sampling. The error then tracks the signal and shows up as distortion instead of benign noise.</p>
+
+<div class="example">
+<h3>Worked example: seven numbers to 4 bits</h3>
+<p>Take −1.37, −0.42, 0.00, 0.58, 1.91, 2.74 and an outlier, 4.20. Calibrate the range to [−1.5, 3.0], deliberately leaving the outlier outside it. Four bits give codes 0–15.</p>
+<p>S = 4.5 / 15 = <strong>0.3</strong>. Z = round(1.5 / 0.3) = <strong>5</strong>.</p>
+<div class="table-wrap"><table>
+<caption>4-bit affine quantization with S = 0.3, Z = 5</caption>
+<thead><tr><th>x</th><th>x / S</th><th>Rounded</th><th>q (0–15)</th><th>x̂ = S(q − Z)</th><th>Error</th></tr></thead>
+<tbody>
+<tr><td>−1.37</td><td>−4.567</td><td>−5</td><td>0</td><td>−1.50</td><td>−0.13</td></tr>
+<tr><td>−0.42</td><td>−1.400</td><td>−1</td><td>4</td><td>−0.30</td><td>+0.12</td></tr>
+<tr><td>0.00</td><td>0.000</td><td>0</td><td>5</td><td>0.00</td><td>0.00</td></tr>
+<tr><td>0.58</td><td>1.933</td><td>2</td><td>7</td><td>0.60</td><td>+0.02</td></tr>
+<tr><td>1.91</td><td>6.367</td><td>6</td><td>11</td><td>1.80</td><td>−0.11</td></tr>
+<tr><td>2.74</td><td>9.133</td><td>9</td><td>14</td><td>2.70</td><td>−0.04</td></tr>
+<tr><td>4.20</td><td>14.000</td><td>14</td><td>19 → 15</td><td>3.00</td><td>−1.20</td></tr>
+</tbody></table></div>
+<ul>
+<li>All six in-range errors are within Δ/2 = 0.15. Their RMS is about 0.087, close to the theoretical Δ/√12 ≈ 0.0866. With so few samples, the closeness is partly luck.</li>
+<li>Zero maps to code 5 and comes back exactly.</li>
+<li>The outlier is clipped to 3.00, an error of −1.20, eight times the worst rounding error.</li>
+<li>Widening the range to [−1.5, 4.2] removes the clipping, but S rises to 0.38 and the expected RMS error on the other values rises to about 0.11. One extreme value costs every other value some accuracy. LLM methods such as LLM.int8(), SmoothQuant and AWQ are built around this outlier problem.</li>
+</ul>
+<p>The scales take storage too, so real formats share one scale across a block. In llama.cpp's Q4_0 format, 32 four-bit codes share one 16-bit scale: (32 × 4 + 16) / 32 = 4.5 bits per weight.</p>
+</div>
+<div class="cta-box"><div><h3>Try it: Quantization playground</h3><p>Quantize a signal or a weight distribution to 1–16 bits and watch the error, histogram and SQNR change live.</p></div><a class="btn btn-ghost" href="../tools/quantization-playground.html">Open the tool</a></div>
+<p>The <a href="../tools/quantization-playground.html">quantization playground</a> shows the same trade-off on a waveform, with live error and SQNR.</p>
+
+<h2 id="ai-model-compression">Quantization in AI models</h2>
+<p>A model with 8 billion parameters stored in 16-bit format takes 8 × 10<sup>9</sup> × 2 bytes = 16 GB. At 4 bits it takes about 4 GB, plus the scales. Token generation is usually limited by memory bandwidth, so smaller weights often mean faster output as well. The <a href="../tools/vram-calculator.html">VRAM calculator</a> does this arithmetic for real models.</p>
+<p>Model quantization changes the textbook recipe in four ways:</p>
+<ul>
+<li><strong>Granularity.</strong> Scales are kept per output channel or per block of 32–256 weights, not one per tensor.</li>
+<li><strong>Outliers.</strong> The LLM.int8() paper found that a few feature dimensions have systematically huge activations. It computes those dimensions in 16-bit and everything else in 8-bit.</li>
+<li><strong>Objective.</strong> The aim is to keep the model's outputs unchanged, not to minimise per-weight error. GPTQ chooses its roundings to minimise each layer's output error on calibration data.</li>
+<li><strong>Timing.</strong> Post-training quantization (PTQ) converts a finished model. Quantization-aware training (QAT) simulates rounding during training. See <a href="../learn/ptq-vs-qat.html">PTQ vs QAT</a>.</li>
+</ul>
+<p>Read the <a href="../learn/llm-quantization-guide.html">LLM quantization guide</a> for the full picture, <a href="../learn/gguf-quant-types.html">GGUF quant types</a> to decode names like Q4_K_M, and <a href="../learn/kv-cache-quantization.html">KV cache quantization</a> for the attention cache.</p>
+
+<div class="cta-box"><div><h3>One clear explainer a week</h3><p>New tools, guides and formats across AI, signals, audio and physics. No spam; unsubscribe any time.</p></div>
+<form class="js-form inline-form" data-subject="Newsletter signup" data-ok="You're subscribed. The next issue lands next week."><input type="email" name="email" required placeholder="you@example.com" aria-label="Email address"><input class="hp" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true"><input type="hidden" name="list" value="Weekly explainer"><button class="btn btn-primary" type="submit">Subscribe</button><div class="form-msg" role="status"></div></form></div>
+
+<h2 id="signals-and-audio">Signals, ADCs and audio bit depth</h2>
+<p>An analog-to-digital converter (ADC) samples a voltage and quantizes each sample to an N-bit code. Its step is one least significant bit (LSB), about the full-scale range divided by 2<sup>N</sup>. Here the Δ/√12 model is physical: it sets the noise floor of an ideal converter.</p>
+<ul>
+<li><strong>16-bit</strong> (the CD format, 44.1 kHz stereo): 6.02 × 16 + 1.76 ≈ <strong>98 dB</strong>.</li>
+<li><strong>24-bit</strong>: ≈ <strong>146 dB</strong>, more than any real analog circuit can deliver. That's why converters are rated by <strong>effective number of bits</strong>, ENOB = (SINAD − 1.76 dB) / 6.02, which uses the measured noise and distortion.</li>
+<li>Uncompressed CD audio runs at 44,100 × 16 × 2 = 1,411,200 bits/s.</li>
+</ul>
+<p>When you reduce bit depth, for example from a 24-bit mix to a 16-bit master, you add a little noise first. This is called <strong>dither</strong>. It breaks the link between error and signal, so quiet fades end in smooth hiss instead of grit. Use the <a href="../tools/adc-calculator.html">ADC calculator</a> for SNR, ENOB and file sizes. Read <a href="../learn/adc-quantization-error.html">ADC quantization error</a> and <a href="../learn/audio-bit-depth-dither.html">bit depth and dither</a> for more.</p>
+
+<h2 id="music-timing-grid">Music: quantizing time to a grid</h2>
+<p>In a DAW, quantize moves MIDI notes to the nearest line of a rhythmic grid. It's the same rounding, applied to time, with the grid spacing as Δ. At 120 BPM a quarter note lasts 0.5 s, so sixteenth-note lines fall every 0.125 s. A note played at 1.070 s is 0.070 s from the line at 1.000 s and 0.055 s from the line at 1.125 s, so it snaps to 1.125 s. No note moves more than half a step, 62.5 ms, which is the Δ/2 bound again.</p>
+<p>Musicians rarely want full snapping, because it removes human feel. DAWs therefore offer a strength or amount control, which moves each note only part of the way:</p>
+<div class="formula">t′ = t + a · (g − t)</div>
+<p class="formula-note">t is the played time, g is the nearest grid line, and a runs from 0 to 1. With a = 0.5, notes move halfway.</p>
+<p>Swing delays every second grid line, which reshapes the grid itself. Quantizing music saves no storage. It's purely a timing tool. Try the <a href="../tools/music-quantizer.html">music quantizer</a> and the <a href="../learn/music-quantize-guide.html">music quantize guide</a>.</p>
+
+<h2 id="physics-energy-levels">Physics: when nature does the quantizing</h2>
+<p>In quantum physics, quantization isn't an engineering choice. It's how bound systems behave: an electron in an atom can only have certain energies. Light carries energy in packets of E = hf, and the SI fixes the Planck constant h at exactly 6.626 070 15 × 10<sup>−34</sup> J s. In the Bohr model of hydrogen:</p>
+<div class="formula">E<sub>n</sub> = −13.6 eV / n<sup>2</sup>, &nbsp; n = 1, 2, 3, …</div>
+<p>A drop from n = 3 to n = 2 releases 13.6 × (1/4 − 1/9) ≈ 1.89 eV. Converting with hc ≈ 1239.84 eV·nm gives λ ≈ 1239.84 / 1.889 ≈ 656 nm, hydrogen's red line. A particle confined to a box of width L has levels E<sub>n</sub> = n<sup>2</sup>h<sup>2</sup> / (8mL<sup>2</sup>). Its lowest level is not zero, and the gaps grow as n increases.</p>
+<p>Both meanings share an image: a ladder of allowed values. The differences matter more:</p>
+<ul>
+<li>Engineering quantizers round away values that really exist, and that creates error. A bound quantum system simply has no in-between energies, so nothing is rounded.</li>
+<li>Engineers choose their levels. Physical levels follow from the equations and boundary conditions, and they are rarely evenly spaced.</li>
+</ul>
+<p>Compute levels and wavelengths with the <a href="../tools/energy-levels.html">energy levels tool</a>, or read <a href="../learn/quantization-in-physics.html">quantization in physics</a>.</p>
+
+<div class="takeaways"><h2 id="takeaways">Key takeaways</h2><ul>
+<li>Quantization maps values onto a finite set of levels, and the loss can't be reversed. b bits give 2<sup>b</sup> levels.</li>
+<li>Rounding error stays within ±Δ/2. Clipping error has no bound, so choosing the range is a trade-off.</li>
+<li>Under the usual assumptions, error variance is Δ²/12, so each bit adds about 6 dB of SQNR.</li>
+<li>Scale and zero-point let unsigned integers cover any range while keeping zero exact.</li>
+<li>Outliers drive most of the design of modern LLM quantization.</li>
+<li>Music quantizes time, often at partial strength. In physics, quantization is a property of nature and carries no error.</li>
+</ul></div>
+
+<section class="faq"><h2 id="faq">Frequently asked questions</h2>
+<details><summary>Is quantization the same as sampling?</summary><p>No. Sampling makes time discrete. Quantization makes values discrete. Digital audio uses both, while model weights only need quantization.</p></details>
+<details><summary>Why is quantization noise Δ²/12?</summary><p>If the rounding error is spread evenly between −Δ/2 and +Δ/2, the mean of its square works out to Δ²/12. That holds for busy signals that cross many levels. It fails for tiny, constant or grid-locked signals.</p></details>
+<details><summary>What does "4-bit" mean for an AI model?</summary><p>Each weight is stored as one of 16 integer codes, and the codes in a block share a higher-precision scale. With the scales included, practical 4-bit formats use roughly 4.1–5 bits per weight, depending on block size and scale format.</p></details>
+<details><summary>How many decibels does each extra bit add?</summary><p>About 6.02 dB. An ideal N-bit quantizer with a full-scale sine input reaches about 6.02N + 1.76 dB: roughly 98 dB at 16 bits.</p></details>
+</section>
+
+<section class="sources"><h2 id="sources">Sources and further reading</h2><ol>
+<li><a href="https://doi.org/10.1109/18.720541" rel="noopener" target="_blank">Gray &amp; Neuhoff, "Quantization," IEEE Trans. Information Theory 44(6), 1998</a> — the standard survey, including the high-resolution error model.</li>
+<li><a href="https://www.analog.com/media/en/training-seminars/tutorials/MT-001.pdf" rel="noopener" target="_blank">Analog Devices MT-001: the formula SNR = 6.02N + 1.76 dB</a> — derivation of q/√12 and the assumptions behind it.</li>
+<li><a href="https://www.analog.com/media/en/training-seminars/tutorials/MT-003.pdf" rel="noopener" target="_blank">Analog Devices MT-003: SINAD, ENOB, SNR, THD and SFDR</a> — the definition of ENOB.</li>
+<li><a href="https://arxiv.org/abs/1712.05877" rel="noopener" target="_blank">Jacob et al., integer-arithmetic-only inference (arXiv 1712.05877)</a> — the scale and zero-point scheme.</li>
+<li><a href="https://arxiv.org/abs/2103.13630" rel="noopener" target="_blank">Gholami et al., A Survey of Quantization Methods for Efficient Neural Network Inference (arXiv 2103.13630)</a> — an overview of neural-network quantization.</li>
+<li><a href="https://arxiv.org/abs/2208.07339" rel="noopener" target="_blank">Dettmers et al., LLM.int8() (arXiv 2208.07339)</a> — outlier features in large transformers.</li>
+<li><a href="https://openstax.org/books/university-physics-volume-3/pages/6-4-bohrs-model-of-the-hydrogen-atom" rel="noopener" target="_blank">OpenStax University Physics Vol. 3: Bohr's model of the hydrogen atom</a> — energy levels and photon emission.</li>
+<li><a href="https://openstax.org/books/university-physics-volume-3/pages/7-4-the-quantum-particle-in-a-box" rel="noopener" target="_blank">OpenStax University Physics Vol. 3: The quantum particle in a box</a> — box energy levels.</li>
+<li><a href="https://www.bipm.org/en/measurement-units/si-defining-constants" rel="noopener" target="_blank">BIPM: SI defining constants</a> — the exact Planck constant.</li>
+</ol></section>
+
+<div class="byline"><div><b>About this guide.</b> Written and fact-checked by the Quantization.com editorial team against the primary sources listed above. Spotted an error or an outdated command? <a href="../contact.html?topic=Correction">Send a correction</a> — we fix verified issues within a few days. See our <a href="../about.html#editorial-policy">editorial policy</a>.</div></div>
+<div class="share" aria-label="Share this page"><a class="btn btn-ghost btn-sm" data-share="copy" href="#">Copy link</a><a class="btn btn-ghost btn-sm" data-share="x" href="#">Post on X</a><a class="btn btn-ghost btn-sm" data-share="linkedin" href="#">LinkedIn</a><a class="btn btn-ghost btn-sm" data-share="reddit" href="#">Reddit</a><a class="btn btn-ghost btn-sm" data-share="hn" href="#">Hacker News</a></div>
+</div>
+<aside class="art-side"><nav class="toc" aria-label="On this page"><h2>On this page</h2><ol><li><a href="#what-quantization-means">What quantization means</a></li><li><a href="#uniform-quantization-math">The math of uniform quantization</a></li><li><a href="#ai-model-compression">Quantization in AI models</a></li><li><a href="#signals-and-audio">Signals, ADCs and audio bit depth</a></li><li><a href="#music-timing-grid">Music: quantizing time to a grid</a></li><li><a href="#physics-energy-levels">Physics: when nature does the quantizing</a></li><li><a href="#takeaways">Key takeaways</a></li><li><a href="#faq">Frequently asked questions</a></li><li><a href="#sources">Sources and further reading</a></li></ol></nav><div class="side-cta"><h3>Try the tools</h3><p>Every formula on this page has a live calculator.</p><a class="btn btn-ghost btn-sm" href="../tools/index.html">Open the tools</a></div></aside>
+</div>
+<section class="related"><h2>Keep reading</h2><ul class="alist"><li><a href="../learn/adc-quantization-error.html"><span class="track track-signal">Signals & audio</span><h3>ADC quantization error, SQNR and ENOB explained</h3><p>LSB size, the ±½ LSB error bound, the Δ²/12 noise model, the 6.02N + 1.76 dB derivation, ENOB, oversampling and dither in one place.</p><span class="meta">9 min</span></a></li><li><a href="../learn/audio-bit-depth-dither.html"><span class="track track-signal">Signals & audio</span><h3>Audio bit depth and dither: 16-bit, 24-bit, 32-bit float</h3><p>What 16, 24 and 32-bit float really give you, why dither beats truncation, which dither to use, and how to calculate audio file size.</p><span class="meta">9 min</span></a></li><li><a href="../learn/gguf-quant-types.html"><span class="track track-ai">AI models</span><h3>GGUF quant types explained: legacy, k-quants and i-quants</h3><p>Decode GGUF names like Q4_K_M and IQ3_XXS, compare bits per weight, and learn to pick and build the right llama.cpp quant.</p><span class="meta">9 min</span></a></li><li><a href="../learn/gptq-vs-awq-vs-gguf.html"><span class="track track-ai">AI models</span><h3>GPTQ vs AWQ vs GGUF vs EXL2: LLM quantization methods compared</h3><p>How GPTQ, AWQ, GGUF, EXL2/EXL3, bitsandbytes, HQQ and FP8 work, where each runs best, and a scenario-by-scenario guide to picking one.</p><span class="meta">10 min</span></a></li></ul></section>
+</article>
+</main>
+<footer class="site"><div class="wrap">
+<div class="foot-grid">
+<div><a class="logo" href="../index.html"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x=".5" y=".5" width="31" height="31" rx="8" fill="#121A2E" stroke="var(--rule-2)"/><path d="M5 20c3-11 7-11 11 0s7 11 11 0" fill="none" stroke="var(--signal)" stroke-width="2" opacity=".9"/><path d="M5 22h4v-6h4v-5h6v5h4v6h4" fill="none" stroke="var(--step)" stroke-width="2.4" stroke-linejoin="round"/></svg><span>Quantization<span class="tld">.com</span></span></a>
+<p class="muted small" style="margin-top:12px;max-width:40ch">Calculators, visual explainers and format guides for representing models, signals and sound with fewer bits — and measuring what it costs.</p>
+<form class="js-form inline-form" data-subject="Newsletter signup" data-ok="You're subscribed. The next issue lands next week." style="margin-top:14px">
+<input type="email" name="email" required placeholder="you@example.com" aria-label="Email for the weekly newsletter"><input class="hp" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true"><input type="hidden" name="list" value="Weekly explainer"><button class="btn btn-primary btn-sm" type="submit">Subscribe</button><div class="form-msg" role="status"></div></form></div>
+<div><h4>Tools</h4><ul><li><a href="../tools/vram-calculator.html">LLM VRAM calculator</a></li><li><a href="../tools/quantization-playground.html">Quantization playground</a></li><li><a href="../tools/adc-calculator.html">ADC and bit-depth calculator</a></li><li><a href="../tools/music-quantizer.html">MIDI quantize and swing lab</a></li><li><a href="../tools/energy-levels.html">Energy levels calculator</a></li></ul></div>
+<div><h4>Learn</h4><ul><li><a href="../learn/index.html">All guides</a></li><li><a href="../learn/llm-quantization-guide.html">LLM quantization guide</a></li><li><a href="../formats.html">Formats atlas</a></li><li><a href="../glossary.html">Glossary</a></li><li><a href="../cheat-sheet.html">Cheat sheet</a></li><li><a href="../videos.html">Videos</a></li><li><a href="../resources.html">Resources</a></li></ul></div>
+<div><h4>Get involved</h4><ul><li><a href="../get-optimized.html">Free optimization plan</a></li><li><a href="../challenge.html">Quantization Challenge</a></li><li><a href="../support.html">Support the project</a></li><li><a href="../careers.html">Careers and talent</a></li><li><a href="../advertise.html">Advertise and sponsor</a></li></ul></div>
+<div><h4>Company</h4><ul><li><a href="../about.html">About and editorial policy</a></li><li><a href="../contact.html">Contact</a></li><li><a href="https://web.works/contact" target="_blank" rel="noopener">Buy, partner or sponsor</a></li><li><a href="../privacy.html">Privacy policy</a></li><li><a href="../terms.html">Terms of use</a></li><li><a href="../cookies.html">Cookie policy</a></li><li><a href="../disclaimer.html">Disclaimer</a></li><li><a href="../trademark.html">Trademark and copyright</a></li><li><a href="../sitemap.html">Sitemap</a></li></ul></div>
+</div>
+<div class="legal">
+<p><b>Trademark and copyright disclosure.</b> “Quantization” is a generic scientific and engineering term. Quantization.com claims no exclusive rights in the word and is an independent educational publication, not affiliated with, endorsed by or sponsored by any company, project, product or person that uses the term. Product names, model names and logos mentioned on this site (for example llama.cpp, GGUF, PyTorch, TensorFlow, NVIDIA, Apple, Hugging Face) are trademarks of their respective owners and are used for identification only. <a href="../trademark.html">Read the full disclosure</a>.</p>
+<p>Content is for general education and is not professional engineering, legal or financial advice. This site shows advertising served by Google AdSense. © <span class="year">2026</span> Quantization.com. Original text, tools, code and graphics © Quantization.com unless otherwise credited.</p>
+</div></div></footer>
+<div class="mcta"><a class="btn btn-ghost" href="../tools/vram-calculator.html">VRAM calculator</a><a class="btn btn-primary" href="../get-optimized.html">Free plan</a></div>
+<div class="cookie" id="cookie" role="dialog" aria-label="Cookie choices"><p>We use essential browser storage for site settings and, with your consent, cookies from Google to personalise and measure ads. Choose “Essential only” to receive non-personalised ads. Details in our <a href="../cookies.html">cookie policy</a>.</p>
+<div class="acts"><button class="btn btn-primary btn-sm" type="button" data-consent="all">Accept all</button><button class="btn btn-ghost btn-sm" type="button" data-consent="essential">Essential only</button></div></div>
+<script src="../assets/js/site.js" defer></script>
+</body>
+</html>
