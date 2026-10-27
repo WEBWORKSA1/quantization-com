@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KV Cache Quantization and Memory Math | Quantization.com</title>
+<meta name="description" content="How much memory the KV cache needs, with worked Llama 3.1 8B and 70B math at 8K and 128K context, and how to quantize it in llama.cpp, Ollama and vLLM.">
+<link rel="canonical" href="https://quantization.com/learn/kv-cache-quantization.html">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#121A2E">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Quantization.com">
+<meta property="og:title" content="KV cache quantization: the memory math and how to do it">
+<meta property="og:description" content="How much memory the KV cache needs, with worked Llama 3.1 8B and 70B math at 8K and 128K context, and how to quantize it in llama.cpp, Ollama and vLLM.">
+<meta property="og:url" content="https://quantization.com/learn/kv-cache-quantization.html">
+<meta property="og:image" content="https://quantization.com/assets/img/og.svg">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/img/icon.svg">
+<link rel="manifest" href="../site.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wdth,wght@75..100,400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/site.css">
+<script>try{var t=localStorage.getItem('qz-theme');if(t)document.documentElement.setAttribute('data-theme',t);if(localStorage.getItem('qz-consent')==='essential'){(window.adsbygoogle=window.adsbygoogle||[]).requestNonPersonalizedAds=1}}catch(e){}</script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6620975821265271" crossorigin="anonymous"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Quantization.com","url":"https://quantization.com/","logo":"https://quantization.com/assets/img/icon.svg"}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"KV cache quantization: the memory math and how to do it","description":"How much memory the KV cache needs, with worked Llama 3.1 8B and 70B math at 8K and 128K context, and how to quantize it in llama.cpp, Ollama and vLLM.","datePublished":"2026-10-27","dateModified":"2026-10-27","wordCount":2194,"author":{"@type":"Organization","name":"Quantization.com editorial team","url":"https://quantization.com/about.html"},"publisher":{"@type":"Organization","name":"Quantization.com","logo":{"@type":"ImageObject","url":"https://quantization.com/assets/img/icon.svg"}},"mainEntityOfPage":"https://quantization.com/learn/kv-cache-quantization.html","image":"https://quantization.com/assets/img/og.svg"}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://quantization.com/"},{"@type":"ListItem","position":2,"name":"Learn","item":"https://quantization.com/learn/"},{"@type":"ListItem","position":3,"name":"KV cache quantization: the memory math and how to do it","item":"https://quantization.com/learn/kv-cache-quantization.html"}]}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does quantizing the KV cache change the model file?","acceptedAnswer":{"@type":"Answer","text":"No. It only changes how the runtime stores keys and values while generating. Any weight quant works with any cache type, and you switch with a flag."}},{"@type":"Question","name":"Should I use q8_0 or q4_0 for the KV cache?","acceptedAnswer":{"@type":"Answer","text":"Start with q8_0. It halves cache memory with very small error. Move to q4_0, ideally for V only, when you need the extra room for longer contexts, and compare outputs at your real context length first."}},{"@type":"Question","name":"Why does llama.cpp say a quantized V cache requires Flash Attention?","acceptedAnswer":{"@type":"Answer","text":"llama.cpp implements attention over a quantized V cache only in its Flash Attention path. Leave -fa at auto or set it to on. With -fa off, context creation fails."}},{"@type":"Question","name":"How much memory does 128K context need for Llama 3.1 8B?","acceptedAnswer":{"@type":"Answer","text":"16 GiB for the cache alone in FP16, or about 8 GiB in 8-bit, for one sequence. Add the weights (about 4.6 GiB at Q4_K_M) and runtime buffers on top."}},{"@type":"Question","name":"Will a quantized KV cache make generation faster?","acceptedAnswer":{"@type":"Answer","text":"Not necessarily. It cuts bytes read per step, but dequantization adds work. Treat it mainly as a memory saving and measure speed on your own setup."}}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="ownerbar" role="note"><a href="https://web.works/contact" target="_blank" rel="noopener">Contact, if you are interested in this website/domain name/Sponsorship/Advertisement/Partnership</a></div>
+<header class="site"><div class="wrap nav">
+<a class="logo" href="../index.html" aria-label="Quantization.com home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x=".5" y=".5" width="31" height="31" rx="8" fill="#121A2E" stroke="var(--rule-2)"/><path d="M5 20c3-11 7-11 11 0s7 11 11 0" fill="none" stroke="var(--signal)" stroke-width="2" opacity=".9"/><path d="M5 22h4v-6h4v-5h6v5h4v6h4" fill="none" stroke="var(--step)" stroke-width="2.4" stroke-linejoin="round"/></svg><span>Quantization<span class="tld">.com</span></span></a>
+<ul class="menu" id="menu"><li><a href="../index.html">Home</a></li><li><a href="../tools/index.html">Tools</a></li><li><a href="../learn/index.html" class="active" aria-current="page">Learn</a></li><li><a href="../formats.html">Formats</a></li><li><a href="../videos.html">Videos</a></li><li><a href="../resources.html">Resources</a></li><li><a href="../challenge.html">Challenge</a></li><li><a href="../support.html">Support</a></li></ul>
+<div class="nav-cta"><a class="btn btn-primary btn-sm btn-head" href="../get-optimized.html">Free optimization plan</a>
+<button class="icon-btn" id="themeBtn" type="button" aria-label="Switch light or dark theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 4v16" /><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg></button>
+<button class="icon-btn burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button></div>
+</div></header>
+<main id="main">
+<nav class="crumbs wrap" aria-label="Breadcrumb"><a href="../index.html">Home</a> <span aria-hidden="true">/</span> <a href="../learn/index.html">Learn</a> <span aria-hidden="true">/</span> <span aria-current="page">KV cache quantization: the memory math and how to do it</span></nav>
+<article class="wrap">
+<header class="art-head">
+<span class="track track-ai">AI models</span>
+<h1>KV cache quantization: the memory math and how to do it</h1>
+<div class="art-meta"><span>By the Quantization.com editorial team</span><span>Updated <time datetime="2026-10-27">October 27, 2026</time></span><span>9 min read</span></div>
+</header>
+<div class="art-layout">
+<div class="prose">
+<p class="lede">The KV cache holds the key and value vectors of every token a model has already processed, in every attention layer. It grows linearly with context length and with the number of sequences you serve at once, so at long contexts it can take more memory than the quantized weights. Storing it in 8 bits instead of 16 halves that cost and usually has little effect on output quality. Going down to 4 bits saves more memory, but you need to test the result.</p>
+
+<h2 id="what-the-kv-cache-stores">What the KV cache stores</h2>
+<p>In a decoder-only transformer, each new token's query is compared against the keys of all earlier tokens, and the resulting weights are applied to their values. Those keys and values never change once computed, so engines compute them once per token and keep them. That store is the KV cache.</p>
+<p>During <strong>prefill</strong>, the engine processes the prompt in parallel and writes one entry per token. During <strong>decode</strong>, each new token appends one entry and reads the entire cache back. So:</p>
+<ul>
+<li>Cache size depends on how many tokens are held, meaning prompt plus generated output, multiplied by the number of concurrent sequences.</li>
+<li>Every decode step streams the whole cache through the memory bus. A large cache costs bandwidth as well as capacity.</li>
+</ul>
+<p>The cache holds no weights and no queries. Weight quantization (see the <a href="../learn/llm-quantization-guide.html">LLM quantization guide</a>) and KV cache quantization are separate settings, and you can combine them freely.</p>
+
+<h2 id="kv-cache-memory-formula">The KV cache memory formula</h2>
+<p>Every full-attention layer stores one key vector and one value vector per KV head per token. Each vector holds <code>head_dim</code> elements. Multiplying everything out gives:</p>
+<div class="formula">KV bytes = 2 × n<sub>layers</sub> × n<sub>kv_heads</sub> × head_dim × n<sub>tokens</sub> × batch × bytes_per_element</div>
+<p class="formula-note">The leading 2 covers keys plus values. n<sub>kv_heads</sub> means key/value heads, which can be fewer than query heads (see below). head_dim is usually hidden_size ÷ n<sub>attention_heads</sub>. bytes_per_element is 2 for FP16/BF16 and 1 for FP8. For llama.cpp's block formats it is about 1.0625 for q8_0 (32 values plus a 16-bit scale = 34 bytes) and 0.5625 for q4_0 (18 bytes per 32 values).</p>
+<p>Only tokens and batch vary at run time, so compute the per-token cost first. Both examples use the published Llama 3.1 configurations.</p>
+
+<div class="example">
+<h3>Worked example: Llama 3.1 8B</h3>
+<p>Configuration: 32 layers, 32 attention heads, 8 KV heads, hidden size 4096, so head_dim = 4096 ÷ 32 = 128.</p>
+<ul>
+<li>Elements per token: 2 × 32 × 8 × 128 = 65,536</li>
+<li>FP16 bytes per token: 65,536 × 2 = 131,072 bytes = 128 KiB</li>
+<li>8K context (8,192 tokens): 8,192 × 128 KiB = 1,048,576 KiB = <strong>1 GiB</strong> (1.07 GB)</li>
+<li>128K context (131,072 tokens): 131,072 × 128 KiB = <strong>16 GiB</strong> (17.2 GB)</li>
+<li>At 1 byte per element (FP8): 0.5 GiB at 8K and 8 GiB at 128K</li>
+</ul>
+</div>
+
+<div class="example">
+<h3>Worked example: Llama 3.1 70B</h3>
+<p>Configuration: 80 layers, 64 attention heads, 8 KV heads, hidden size 8192, so head_dim = 8192 ÷ 64 = 128.</p>
+<ul>
+<li>Elements per token: 2 × 80 × 8 × 128 = 163,840</li>
+<li>FP16 bytes per token: 163,840 × 2 = 327,680 bytes = 320 KiB</li>
+<li>8K context: 8,192 × 320 KiB = <strong>2.5 GiB</strong> (2.68 GB)</li>
+<li>128K context: 131,072 × 320 KiB = <strong>40 GiB</strong> (42.9 GB)</li>
+<li>At 1 byte per element: 1.25 GiB at 8K and 20 GiB at 128K</li>
+</ul>
+</div>
+
+<div class="table-wrap"><table>
+<caption>KV cache size for one sequence (batch = 1), in GiB</caption>
+<thead><tr><th>Model</th><th>Context</th><th>FP16 / BF16</th><th>FP8 (1 byte)</th><th>q8_0</th><th>q4_0</th></tr></thead>
+<tbody>
+<tr><td>Llama 3.1 8B</td><td>8K</td><td>1.00</td><td>0.50</td><td>0.53</td><td>0.28</td></tr>
+<tr><td>Llama 3.1 8B</td><td>128K</td><td>16.0</td><td>8.0</td><td>8.5</td><td>4.5</td></tr>
+<tr><td>Llama 3.1 70B</td><td>8K</td><td>2.50</td><td>1.25</td><td>1.33</td><td>0.70</td></tr>
+<tr><td>Llama 3.1 70B</td><td>128K</td><td>40.0</td><td>20.0</td><td>21.25</td><td>11.25</td></tr>
+</tbody>
+</table></div>
+<p>Batch multiplies everything. Eight concurrent 32K-token conversations on the 8B model need 128 KiB × 32,768 × 8 = 32 GiB of FP16 cache, about seven times its 4-bit weights.</p>
+
+<div class="cta-box lead"><div><h3>Want this done for your model?</h3><p>Tell us your model, hardware and target. We send back a free optimization plan: recommended format, expected memory and a quality-check method.</p></div><a class="btn btn-primary" href="../get-optimized.html">Get the free plan</a></div>
+
+<h2 id="gqa-and-mqa">How GQA and MQA shrink the cache</h2>
+<p>Multi-head attention (MHA) gives every query head its own key and value heads. Multi-query attention (MQA) shares one K/V head across all query heads. Grouped-query attention (GQA) shares one K/V head per group of query heads. The cache stores only K/V heads, so their count sets the memory cost.</p>
+<ul>
+<li>Llama 3.1 8B has 32 query heads and 8 KV heads, which is groups of 4. Its cache is one quarter of what MHA would need. With MHA, the 128K figure would be 64 GiB instead of 16 GiB.</li>
+<li>Llama 3.1 70B has 64 query heads and 8 KV heads, which is groups of 8. With MHA, 128K of FP16 cache would take 320 GiB instead of 40 GiB.</li>
+</ul>
+<p>The KV head count is fixed in training. At inference, you control context length, batch and bytes per element. Sliding-window layers and latent-attention designs change the formula, so for those models check the engine's startup log instead of applying it blindly.</p>
+<div class="cta-box"><div><h3>Try it: LLM VRAM calculator</h3><p>Weights, KV cache and overhead for any model, quant and context length — with a fit check across 20 GPUs and Macs.</p></div><a class="btn btn-ghost" href="../tools/vram-calculator.html">Open the tool</a></div>
+
+<h2 id="when-context-dominates">When context length, not weights, dominates memory</h2>
+<p>Divide the weight size by the per-token cache cost to find the context length at which the cache equals the model:</p>
+<div class="formula">crossover tokens = weight bytes ÷ KV bytes per token</div>
+<ul>
+<li><strong>8B at Q4_K_M:</strong> llama.cpp's quantize documentation lists the Llama 3.1 8B Q4_K_M file at 4.58 GiB. 4.58 GiB ÷ 128 KiB ≈ 37,500 tokens. Past about 37K tokens of FP16 cache, the cache is larger than the weights. At 128K, it is 16 GiB against 4.58 GiB.</li>
+<li><strong>70B at Q4_K_M:</strong> the same documentation lists about 43.1 GB (≈ 40.1 GiB). At 128K, the 40 GiB FP16 cache roughly equals the weights.</li>
+</ul>
+<p>Speed shows the same effect. Each decode step reads the weights and the whole cache, so at 128K on the 8B model the step reads 16 GiB of cache against under 5 GiB of weights, and generation slows as the conversation grows.</p>
+<p>When you hit the memory wall, work through these options in order:</p>
+<ol>
+<li>Allocate only the context you use. In llama.cpp, set <code>-c</code> explicitly. By default <code>-c</code> is taken from the model, and the default <code>--fit</code> behaviour adjusts unset arguments, including context size, to fit device memory. That can leave you with a smaller window than you expected.</li>
+<li>Reduce parallel slots or batch size. Each concurrent sequence needs its own cache.</li>
+<li>Quantize the KV cache to 8 bits.</li>
+<li>Only then consider a smaller weight quant, or 4-bit KV.</li>
+</ol>
+
+<h2 id="kv-cache-quantization-in-practice">KV cache quantization in practice</h2>
+<h3>llama.cpp</h3>
+<p>The flags are <code>-ctk</code>/<code>--cache-type-k</code> and <code>-ctv</code>/<code>--cache-type-v</code>. Accepted types are f32, f16, bf16, q8_0, q4_0, q4_1, iq4_nl, q5_0 and q5_1, and both default to f16. A quantized V cache requires Flash Attention. <code>-fa</code> defaults to <code>auto</code>, and in that mode llama.cpp turns Flash Attention on when V is quantized. If you pass <code>-fa off</code>, it refuses to create the context. The requirement applies to V. A quantized K cache on its own is accepted without Flash Attention.</p>
+<pre><code>llama-server -m model-Q4_K_M.gguf -c 32768 -fa on -ctk q8_0 -ctv q8_0</code></pre>
+<aside class="warn"><p>By default, CUDA builds compile Flash Attention kernels for matching pairs only: q4_0/q4_0, q8_0/q8_0, f16/f16 and bf16/bf16. A mixed pair such as K = q8_0 with V = q4_0 falls back to the f16 kernel with a warning unless you build with <code>GGML_CUDA_FA_QUANTS</code> set to include that pair. The experimental <code>--split-mode tensor</code> multi-GPU mode does not support a quantized KV cache at all.</p></aside>
+
+<h3>Ollama</h3>
+<p>Ollama exposes one server-wide setting, <code>OLLAMA_KV_CACHE_TYPE</code>, with the values <code>f16</code> (default), <code>q8_0</code> and <code>q4_0</code>. It takes effect only when Flash Attention is active. Ollama enables Flash Attention automatically where the backend supports it, and <code>OLLAMA_FLASH_ATTENTION=1</code> forces it on.</p>
+<pre><code>OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q8_0 ollama serve</code></pre>
+
+<h3>vLLM</h3>
+<p>vLLM sets the cache type with <code>--kv-cache-dtype</code> (or <code>kv_cache_dtype</code> in Python). The default is <code>auto</code>, which uses the model's own dtype. The documented quantized options are <code>fp8</code> (the same as <code>fp8_e4m3</code>, on CUDA and ROCm) and <code>fp8_e5m2</code> (CUDA).</p>
+<pre><code>vllm serve meta-llama/Llama-3.1-8B-Instruct --kv-cache-dtype fp8 --max-model-len 32768</code></pre>
+<p>Without calibration, vLLM sets every scale to 1.0. Its documentation recommends calibrating scales with llm-compressor, which stores them in the checkpoint. <code>--kv-cache-dtype-skip-layers sliding_window</code> keeps sensitive sliding-window layers at native precision. Because vLLM pre-allocates cache blocks from a fixed share of GPU memory (<code>--gpu-memory-utilization</code>, default 0.92), FP8 roughly doubles the tokens it can hold.</p>
+
+<h3>Hugging Face Transformers</h3>
+<p>Transformers offers a quantized cache per <code>generate</code> call. The default <code>quanto</code> backend supports int2 and int4, and <code>hqq</code> adds int8. The docs warn it can slow short-context generation.</p>
+<pre><code>out = model.generate(**inputs, max_new_tokens=256,
+                     cache_implementation="quantized",
+                     cache_config={"backend": "quanto", "nbits": 4})</code></pre>
+
+<h2 id="quality-considerations">Quality considerations</h2>
+<p><strong>8-bit is the safe default.</strong> llama.cpp's q8_0 stores a separate scale for every 32 values, so its rounding error is small compared with FP16. FP8 E4M3 has a narrow dynamic range, so its accuracy depends on good scales, and calibrated scales beat the default of 1.0. Ollama's documentation says q8_0 usually has no noticeable effect on quality.</p>
+<p><strong>4-bit is a trade-off you must measure.</strong> Errors in the keys change attention scores. With tens of thousands of cached tokens competing for attention, small score errors are more likely to reorder close candidates. Ollama's documentation likewise notes that q4_0 losses may be more noticeable at larger context sizes.</p>
+<p><strong>Keys are harder than values.</strong> KIVI and KVQuant both quantize keys per channel, because key magnitudes vary strongly between channels. KIVI quantizes values per token. llama.cpp's block formats quantize runs of 32 values within each token's vectors, a per-token grouping that the KIVI analysis found suits values better than keys. If you need to go below 8 bits, try keeping K at q8_0 and dropping only V to q4_0, after checking the CUDA build caveat above.</p>
+<p><strong>High GQA ratios amplify error.</strong> Each cached KV head serves its whole group of query heads, so its error spreads further. Ollama's documentation notes that high-GQA models may be more sensitive.</p>
+<aside class="note"><p>Test at the context length you actually use. Short-context chat rarely exposes cache error. Run retrieval questions over your own long documents, or compare perplexity at a long window. For example, <code>llama-perplexity -m model.gguf -f wiki.test.raw -c 16384 -fa on -ctk q4_0 -ctv q4_0</code> against the same command with f16 cache.</p></aside>
+
+<div class="takeaways"><h2 id="takeaways">Key takeaways</h2><ul>
+<li>KV bytes = 2 × layers × KV heads × head_dim × tokens × batch × bytes per element. Compute the per-token cost once and scale it.</li>
+<li>Llama 3.1 8B needs 128 KiB per token in FP16, which is 1 GiB at 8K and 16 GiB at 128K. Llama 3.1 70B needs 320 KiB per token, which is 2.5 GiB at 8K and 40 GiB at 128K.</li>
+<li>GQA already shrinks these caches by 4× (8B) and 8× (70B) compared with multi-head attention.</li>
+<li>For a 4-bit 8B model, the FP16 cache outgrows the weights at about 37K tokens. For long contexts and multi-user serving, the cache is the main memory cost.</li>
+<li>Start with 8-bit KV (q8_0 in llama.cpp and Ollama, fp8 in vLLM). Use 4-bit only after testing at your real context length.</li>
+</ul></div>
+
+<section class="faq"><h2 id="faq">Frequently asked questions</h2>
+<details><summary>Does quantizing the KV cache change the model file?</summary><p>No. It only changes how the runtime stores keys and values while generating. Any weight quant works with any cache type, and you switch with a flag.</p></details>
+<details><summary>Should I use q8_0 or q4_0 for the KV cache?</summary><p>Start with q8_0. It halves cache memory with very small error. Move to q4_0, ideally for V only, when you need the extra room for longer contexts, and compare outputs at your real context length first.</p></details>
+<details><summary>Why does llama.cpp say a quantized V cache requires Flash Attention?</summary><p>llama.cpp implements attention over a quantized V cache only in its Flash Attention path. Leave <code>-fa</code> at <code>auto</code> or set it to <code>on</code>. With <code>-fa off</code>, context creation fails.</p></details>
+<details><summary>How much memory does 128K context need for Llama 3.1 8B?</summary><p>16 GiB for the cache alone in FP16, or about 8 GiB in 8-bit, for one sequence. Add the weights (about 4.6 GiB at Q4_K_M) and runtime buffers on top.</p></details>
+<details><summary>Will a quantized KV cache make generation faster?</summary><p>Not necessarily. It cuts bytes read per step, but dequantization adds work. Treat it mainly as a memory saving and measure speed on your own setup.</p></details>
+</section>
+
+<section class="sources"><h2 id="sources">Sources and further reading</h2><ol>
+<li><a href="https://arxiv.org/abs/2305.13245" rel="noopener" target="_blank">GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints</a>: Ainslie et al., the grouped-query attention paper.</li>
+<li><a href="https://arxiv.org/abs/1911.02150" rel="noopener" target="_blank">Fast Transformer Decoding: One Write-Head is All You Need</a>: Shazeer's multi-query attention paper.</li>
+<li><a href="https://arxiv.org/abs/2402.02750" rel="noopener" target="_blank">KIVI: A Tuning-Free Asymmetric 2bit Quantization for KV Cache</a>: covers per-channel keys and per-token values.</li>
+<li><a href="https://arxiv.org/abs/2401.18079" rel="noopener" target="_blank">KVQuant: Towards 10 Million Context Length LLM Inference with KV Cache Quantization</a>: on key outliers and low-bit cache methods.</li>
+<li><a href="https://arxiv.org/abs/2309.06180" rel="noopener" target="_blank">Efficient Memory Management for Large Language Model Serving with PagedAttention</a>: the vLLM paper on KV cache memory management.</li>
+<li><a href="https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md" rel="noopener" target="_blank">llama.cpp server README</a>: reference for the cache-type and flash-attention flags.</li>
+<li><a href="https://docs.vllm.ai/en/latest/features/quantization/quantized_kvcache.html" rel="noopener" target="_blank">vLLM: Quantized KV Cache</a>: FP8 cache options and scale calibration.</li>
+<li><a href="https://docs.ollama.com/faq" rel="noopener" target="_blank">Ollama FAQ</a>: covers OLLAMA_KV_CACHE_TYPE and the Flash Attention settings.</li>
+<li><a href="https://huggingface.co/docs/transformers/main/en/kv_cache" rel="noopener" target="_blank">Hugging Face Transformers: KV cache strategies</a>: covers QuantizedCache backends and caveats.</li>
+</ol></section>
+
+<div class="byline"><div><b>About this guide.</b> Written and fact-checked by the Quantization.com editorial team against the primary sources listed above. Spotted an error or an outdated command? <a href="../contact.html?topic=Correction">Send a correction</a> — we fix verified issues within a few days. See our <a href="../about.html#editorial-policy">editorial policy</a>.</div></div>
+<div class="share" aria-label="Share this page"><a class="btn btn-ghost btn-sm" data-share="copy" href="#">Copy link</a><a class="btn btn-ghost btn-sm" data-share="x" href="#">Post on X</a><a class="btn btn-ghost btn-sm" data-share="linkedin" href="#">LinkedIn</a><a class="btn btn-ghost btn-sm" data-share="reddit" href="#">Reddit</a><a class="btn btn-ghost btn-sm" data-share="hn" href="#">Hacker News</a></div>
+</div>
+<aside class="art-side"><nav class="toc" aria-label="On this page"><h2>On this page</h2><ol><li><a href="#what-the-kv-cache-stores">What the KV cache stores</a></li><li><a href="#kv-cache-memory-formula">The KV cache memory formula</a></li><li><a href="#gqa-and-mqa">How GQA and MQA shrink the cache</a></li><li><a href="#when-context-dominates">When context length, not weights, dominates memory</a></li><li><a href="#kv-cache-quantization-in-practice">KV cache quantization in practice</a></li><li><a href="#quality-considerations">Quality considerations</a></li><li><a href="#takeaways">Key takeaways</a></li><li><a href="#faq">Frequently asked questions</a></li><li><a href="#sources">Sources and further reading</a></li></ol></nav><div class="side-cta"><h3>Free optimization plan</h3><p>Send your model and hardware; get a recommended format and memory estimate back.</p><a class="btn btn-primary btn-sm" href="../get-optimized.html">Request the plan</a></div></aside>
+</div>
+<section class="related"><h2>Keep reading</h2><ul class="alist"><li><a href="../learn/gguf-quant-types.html"><span class="track track-ai">AI models</span><h3>GGUF quant types explained: legacy, k-quants and i-quants</h3><p>Decode GGUF names like Q4_K_M and IQ3_XXS, compare bits per weight, and learn to pick and build the right llama.cpp quant.</p><span class="meta">9 min</span></a></li><li><a href="../learn/gptq-vs-awq-vs-gguf.html"><span class="track track-ai">AI models</span><h3>GPTQ vs AWQ vs GGUF vs EXL2: LLM quantization methods compared</h3><p>How GPTQ, AWQ, GGUF, EXL2/EXL3, bitsandbytes, HQQ and FP8 work, where each runs best, and a scenario-by-scenario guide to picking one.</p><span class="meta">10 min</span></a></li><li><a href="../learn/hardware-for-local-llms.html"><span class="track track-ai">AI models</span><h3>Choosing hardware for local LLMs: memory first, bandwidth second</h3><p>What fits in 8–80 GB at Q4, Q5 and Q8, why memory bandwidth caps tokens per second, and how GPUs, Apple Silicon and CPUs compare.</p><span class="meta">10 min</span></a></li><li><a href="../learn/llm-quantization-guide.html"><span class="track track-ai">AI models</span><h3>LLM quantization: the complete practical guide</h3><p>Memory math, method families from GPTQ to NVFP4, quality metrics, and a hardware-first checklist for quantizing LLMs.</p><span class="meta">10 min</span></a></li></ul></section>
+</article>
+</main>
+<footer class="site"><div class="wrap">
+<div class="foot-grid">
+<div><a class="logo" href="../index.html"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x=".5" y=".5" width="31" height="31" rx="8" fill="#121A2E" stroke="var(--rule-2)"/><path d="M5 20c3-11 7-11 11 0s7 11 11 0" fill="none" stroke="var(--signal)" stroke-width="2" opacity=".9"/><path d="M5 22h4v-6h4v-5h6v5h4v6h4" fill="none" stroke="var(--step)" stroke-width="2.4" stroke-linejoin="round"/></svg><span>Quantization<span class="tld">.com</span></span></a>
+<p class="muted small" style="margin-top:12px;max-width:40ch">Calculators, visual explainers and format guides for representing models, signals and sound with fewer bits — and measuring what it costs.</p>
+<form class="js-form inline-form" data-subject="Newsletter signup" data-ok="You're subscribed. The next issue lands next week." style="margin-top:14px">
+<input type="email" name="email" required placeholder="you@example.com" aria-label="Email for the weekly newsletter"><input class="hp" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true"><input type="hidden" name="list" value="Weekly explainer"><button class="btn btn-primary btn-sm" type="submit">Subscribe</button><div class="form-msg" role="status"></div></form></div>
+<div><h4>Tools</h4><ul><li><a href="../tools/vram-calculator.html">LLM VRAM calculator</a></li><li><a href="../tools/quantization-playground.html">Quantization playground</a></li><li><a href="../tools/adc-calculator.html">ADC and bit-depth calculator</a></li><li><a href="../tools/music-quantizer.html">MIDI quantize and swing lab</a></li><li><a href="../tools/energy-levels.html">Energy levels calculator</a></li></ul></div>
+<div><h4>Learn</h4><ul><li><a href="../learn/index.html">All guides</a></li><li><a href="../learn/llm-quantization-guide.html">LLM quantization guide</a></li><li><a href="../formats.html">Formats atlas</a></li><li><a href="../glossary.html">Glossary</a></li><li><a href="../cheat-sheet.html">Cheat sheet</a></li><li><a href="../videos.html">Videos</a></li><li><a href="../resources.html">Resources</a></li></ul></div>
+<div><h4>Get involved</h4><ul><li><a href="../get-optimized.html">Free optimization plan</a></li><li><a href="../challenge.html">Quantization Challenge</a></li><li><a href="../support.html">Support the project</a></li><li><a href="../careers.html">Careers and talent</a></li><li><a href="../advertise.html">Advertise and sponsor</a></li></ul></div>
+<div><h4>Company</h4><ul><li><a href="../about.html">About and editorial policy</a></li><li><a href="../contact.html">Contact</a></li><li><a href="https://web.works/contact" target="_blank" rel="noopener">Buy, partner or sponsor</a></li><li><a href="../privacy.html">Privacy policy</a></li><li><a href="../terms.html">Terms of use</a></li><li><a href="../cookies.html">Cookie policy</a></li><li><a href="../disclaimer.html">Disclaimer</a></li><li><a href="../trademark.html">Trademark and copyright</a></li><li><a href="../sitemap.html">Sitemap</a></li></ul></div>
+</div>
+<div class="legal">
+<p><b>Trademark and copyright disclosure.</b> “Quantization” is a generic scientific and engineering term. Quantization.com claims no exclusive rights in the word and is an independent educational publication, not affiliated with, endorsed by or sponsored by any company, project, product or person that uses the term. Product names, model names and logos mentioned on this site (for example llama.cpp, GGUF, PyTorch, TensorFlow, NVIDIA, Apple, Hugging Face) are trademarks of their respective owners and are used for identification only. <a href="../trademark.html">Read the full disclosure</a>.</p>
+<p>Content is for general education and is not professional engineering, legal or financial advice. This site shows advertising served by Google AdSense. © <span class="year">2026</span> Quantization.com. Original text, tools, code and graphics © Quantization.com unless otherwise credited.</p>
+</div></div></footer>
+<div class="mcta"><a class="btn btn-ghost" href="../tools/vram-calculator.html">VRAM calculator</a><a class="btn btn-primary" href="../get-optimized.html">Free plan</a></div>
+<div class="cookie" id="cookie" role="dialog" aria-label="Cookie choices"><p>We use essential browser storage for site settings and, with your consent, cookies from Google to personalise and measure ads. Choose “Essential only” to receive non-personalised ads. Details in our <a href="../cookies.html">cookie policy</a>.</p>
+<div class="acts"><button class="btn btn-primary btn-sm" type="button" data-consent="all">Accept all</button><button class="btn btn-ghost btn-sm" type="button" data-consent="essential">Essential only</button></div></div>
+<script src="../assets/js/site.js" defer></script>
+</body>
+</html>
