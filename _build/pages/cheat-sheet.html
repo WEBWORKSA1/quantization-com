@@ -1,0 +1,66 @@
+---
+title: Quantization Cheat Sheet: Formulas and Formats | Quantization.com
+description: One printable page of quantization formulas and rules of thumb: LLM memory and KV cache, GGUF bits per weight, SQNR and ENOB, dither, swing timing and energy levels.
+crumb: Cheat sheet
+---
+<section class="page-head"><div class="wrap">
+<h1>Quantization cheat sheet</h1>
+<p class="sub">Every formula and rule of thumb from the site on one page. Print it or save it as a PDF from your browser.</p>
+<p style="margin-top:14px"><button class="btn btn-ghost btn-sm" type="button" onclick="window.print()">Print or save as PDF</button></p>
+</div></section>
+<section class="section-tight"><div class="wrap grid g2 prose" style="max-width:none;gap:36px">
+<div>
+<h2 id="core">Core quantization</h2>
+<div class="formula">q = clamp(round(x ÷ s) + z, q<sub>min</sub>, q<sub>max</sub>)<br>x̂ = s · (q − z)</div>
+<p class="formula-note">Symmetric: s = max|x| ÷ (2<sup>b−1</sup> − 1), z = 0. Asymmetric: s = (max − min) ÷ (2<sup>b</sup> − 1), z = round(−min ÷ s).</p>
+<div class="formula">error variance ≈ Δ² ÷ 12 &nbsp;·&nbsp; rms ≈ 0.29 Δ</div>
+<h2 id="llm-memory">LLM memory</h2>
+<div class="formula">weights (bytes) = parameters × bits per weight ÷ 8</div>
+<div class="formula">KV cache = 2 × layers × KV heads × head_dim × tokens × sequences × bytes</div>
+<p class="formula-note">Add about 1 GB plus 5% of weights for runtime overhead. Llama 3.1 8B: 128 KiB of FP16 KV cache per token, so 1 GiB per 8K tokens.</p>
+<div class="table-wrap"><table><thead><tr><th>Format</th><th class="n">≈ bits/weight</th><th class="n">8B model</th><th class="n">70B model</th></tr></thead><tbody>
+<tr><td>BF16</td><td class="n">16</td><td class="n">15.0 GB</td><td class="n">131 GB</td></tr>
+<tr><td>Q8_0 / FP8</td><td class="n">8–8.5</td><td class="n">7.5–8.0 GB</td><td class="n">66–70 GB</td></tr>
+<tr><td>Q6_K</td><td class="n">6.56</td><td class="n">6.1 GB</td><td class="n">54 GB</td></tr>
+<tr><td>Q5_K_M</td><td class="n">5.70</td><td class="n">5.3 GB</td><td class="n">47 GB</td></tr>
+<tr><td>Q4_K_M</td><td class="n">4.89</td><td class="n">4.6 GB</td><td class="n">40 GB</td></tr>
+<tr><td>GPTQ/AWQ 4-bit</td><td class="n">≈4.25</td><td class="n">4.0 GB</td><td class="n">35 GB</td></tr>
+<tr><td>Q3_K_M</td><td class="n">4.00</td><td class="n">3.7 GB</td><td class="n">33 GB</td></tr>
+<tr><td>Q2_K</td><td class="n">3.16</td><td class="n">3.0 GB</td><td class="n">26 GB</td></tr>
+</tbody></table></div>
+<p class="formula-note">Sizes in GiB, weights only, computed from 8.03B and 70.6B parameters. Effective GGUF bits per weight from the llama.cpp quantize README.</p>
+<div class="formula">decode speed ceiling ≈ memory bandwidth ÷ bytes read per token</div>
+<h2 id="choose">Choosing a format, fast</h2>
+<ul>
+<li>Near-lossless: 8-bit (Q8_0, FP8, INT8 W8A8).</li>
+<li>Best balance for local use: Q4_K_M to Q6_K.</li>
+<li>GPU serving at scale: FP8 on newer GPUs; AWQ or GPTQ 4-bit when memory is the limit.</li>
+<li>Below about 3 bits per weight, quality drops faster; use importance-matrix (imatrix) i-quants and test carefully.</li>
+</ul>
+</div>
+<div>
+<h2 id="signals">Signals and ADCs</h2>
+<div class="formula">LSB = full-scale range ÷ 2<sup>N</sup></div>
+<div class="formula">SQNR ≈ 6.02 N + 1.76 dB &nbsp;(full-scale sine)</div>
+<div class="formula">ENOB = (SINAD − 1.76) ÷ 6.02</div>
+<div class="formula">oversampling gain = 10 · log<sub>10</sub>(f<sub>s</sub> ÷ 2BW) dB</div>
+<p class="formula-note">Each doubling of sample rate adds ≈ 3 dB (½ bit) without noise shaping.</p>
+<h2 id="audio">Audio</h2>
+<div class="table-wrap"><table><thead><tr><th>Bit depth</th><th class="n">Theoretical dynamic range</th></tr></thead><tbody>
+<tr><td>16-bit</td><td class="n">≈ 96 dB</td></tr><tr><td>24-bit</td><td class="n">≈ 144 dB</td></tr><tr><td>32-bit float</td><td class="n">huge headroom; practical limit set by analog stages</td></tr>
+</tbody></table></div>
+<p class="formula-note">Dither once, at the final word-length reduction (e.g. 24 → 16-bit). TPDF dither spans ±1 LSB.</p>
+<div class="formula">bytes = sample rate × bit depth × channels × seconds ÷ 8</div>
+<h2 id="music">Music timing</h2>
+<div class="formula">beat (ms) = 60,000 ÷ BPM &nbsp;·&nbsp; 1/16 note = beat ÷ 4</div>
+<div class="formula">new time = old + strength × (grid − old)</div>
+<p class="formula-note">Swing (drum-machine convention): 50% straight, ≈ 66.7% triplet. Second note of each pair sits at swing × pair length.</p>
+<h2 id="physics">Physics</h2>
+<div class="formula">E = h f = h c ÷ λ &nbsp;·&nbsp; λ(nm) ≈ 1239.84 ÷ E(eV)</div>
+<div class="formula">hydrogen: E<sub>n</sub> = −13.6 eV ÷ n²</div>
+<div class="formula">particle in a box: E<sub>n</sub> = n² h² ÷ (8 m L²)</div>
+<div class="formula">harmonic oscillator: E<sub>n</sub> = (n + ½) ħω</div>
+<p class="formula-note">h = 6.62607015 × 10⁻³⁴ J·s (exact). Balmer lines: 656, 486, 434, 410 nm.</p>
+</div>
+</div></section>
+<section class="section-tight"><div class="wrap"><div data-cta="newsletter"></div></div></section>

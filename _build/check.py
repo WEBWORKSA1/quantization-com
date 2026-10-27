@@ -39,7 +39,7 @@ for p in pages:
         warns.append(f"{rel}: description length {len(d.group(1))}")
     for m in re.finditer(r'(?:href|src)="([^"]+)"', s):
         u = m.group(1)
-        if u.startswith(("http://", "https://", "mailto:", "#", "javascript:", "data:", "//")):
+        if u.startswith(("http://", "https://", "mailto:", "#", "javascript:", "data:", "//", "'+")):
             continue
         path = urlparse(u).path
         if not path:
