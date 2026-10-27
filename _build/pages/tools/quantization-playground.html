@@ -1,0 +1,68 @@
+---
+title: Quantization Playground: See Bits, Error and SQNR Live | Quantization.com
+description: Interactive quantization visualizer. Quantize a sine wave or neural-network weights to 1–16 bits, try symmetric vs asymmetric, clipping, per-group scales and dither.
+crumb: Quantization playground
+schema: webapp
+js: playground.js
+---
+<section class="page-head" style="padding-top:26px"><div class="wrap">
+<h1>Quantization playground</h1>
+<p class="sub">Choose a signal or a set of neural-network weights, set the bit width and scheme, and watch the quantized values, the error and the signal-to-quantization-noise ratio respond instantly.</p>
+</div></section>
+
+<section class="section-tight"><div class="wrap">
+<div class="tool-shell">
+<div class="controls">
+<h2>Input</h2>
+<div class="field"><label for="pgSrc">What to quantize</label><select id="pgSrc">
+<option value="sine">Full-scale sine wave</option><option value="twotone">Two-tone signal</option><option value="quiet">Quiet sine (−22 dBFS)</option><option value="gauss">Neural-network weights (Gaussian)</option><option value="outlier">LLM-style weights with outliers</option></select></div>
+<div class="field"><label for="pgBits">Bit width: <span class="num" id="pmBitsOut">4</span> bits</label><input type="range" id="pgBits" min="1" max="16" value="4" step="1"></div>
+<h2 style="margin-top:18px">Scheme</h2>
+<div class="field"><label for="pgScheme">Mapping</label><select id="pgScheme"><option value="sym">Symmetric (absmax, zero-point = 0)</option><option value="asym">Asymmetric (min–max with zero-point)</option></select></div>
+<div class="field"><label for="pgClip">Range (clipping)</label><select id="pgClip"><option value="none">Full range, no clipping</option><option value="p999">Clip at 99.9th percentile</option><option value="p99">Clip at 99th percentile</option></select></div>
+<div class="field" id="pgGroupWrap"><label for="pgGran">Granularity</label><select id="pgGran"><option value="tensor">Per-tensor (one scale)</option><option value="group">Per-group</option></select>
+<select id="pgGroup" aria-label="Group size" style="margin-top:6px"><option value="32">Group size 32</option><option value="64" selected>Group size 64</option><option value="128">Group size 128</option></select></div>
+<div class="row2">
+<div class="field"><label for="pgRound">Rounding</label><select id="pgRound"><option value="nearest">Round to nearest</option><option value="floor">Truncate (floor)</option></select></div>
+<div class="field"><label for="pgDither">Dither</label><select id="pgDither"><option value="none">None</option><option value="tpdf">TPDF (±1 LSB)</option></select></div>
+</div>
+<div class="field"><label for="pgView">Chart</label><select id="pgView"><option value="auto">Automatic</option><option value="time">Waveform and error</option><option value="hist">Histogram with levels</option></select></div>
+</div>
+
+<div class="output" aria-live="polite">
+<div class="bigread">
+<div><div class="k">SQNR measured</div><div class="v stp num"><span id="pmSqnr">—</span> <small>dB</small></div></div>
+<div><div class="k">Ideal for a sine</div><div class="v sig num" id="pmTheory">—</div></div>
+<div><div class="k">Mean squared error</div><div class="v err num" id="pmMse">—</div></div>
+</div>
+<div class="canvas-wrap"><canvas id="pgCanvas" role="img" aria-label="Chart of original values, quantized values and quantization error"></canvas></div>
+<p id="pgHint" style="font-weight:600;margin:14px 0 6px"></p>
+<div class="keyline" style="margin-bottom:12px"><span><i style="background:var(--signal)"></i>Original</span><span><i style="background:var(--step)"></i>Quantized</span><span><i style="background:var(--error)"></i>Error</span></div>
+<div class="grid g3" style="gap:10px;font-size:.92rem">
+<div class="panel-sunk"><div class="muted small">Levels used / available</div><div class="num" id="pmUsed">—</div></div>
+<div class="panel-sunk"><div class="muted small">Values clipped</div><div class="num" id="pmClip">—</div></div>
+<div class="panel-sunk"><div class="muted small">Scale</div><div class="num" id="pmScale" style="word-break:break-word">—</div></div>
+</div>
+<div class="table-wrap"><table><caption>First values: original → integer code → dequantized → error</caption><thead><tr><th class="n">Original x</th><th class="n">Code q</th><th class="n">Dequantized</th><th class="n">Error</th></tr></thead><tbody id="pgRows"></tbody></table></div>
+<div class="formula-strip">symmetric: s = max|x| ÷ (2<sup>b−1</sup> − 1), q = round(x ÷ s) &nbsp;·&nbsp; asymmetric: s = (max − min) ÷ (2<sup>b</sup> − 1), z = round(−min ÷ s), q = round(x ÷ s) + z &nbsp;·&nbsp; x̂ = s(q − z)</div>
+</div>
+</div>
+</div></section>
+
+<section class="section"><div class="wrap prose" style="max-width:76ch">
+<h2 id="what-to-try">Five experiments worth two minutes</h2>
+<ol>
+<li><b>The 6 dB rule.</b> With the full-scale sine, step from 4 to 8 bits. Measured SQNR climbs about 6 dB per bit and tracks the ideal 6.02N + 1.76 dB line.</li>
+<li><b>Why outliers hurt LLMs.</b> Choose "LLM-style weights with outliers", 4 bits, per-tensor. Three large weights set the scale, so most weights collapse onto a couple of levels and SQNR drops. Switch to per-group with group size 64: each block gets its own scale and the error falls sharply. This is the idea behind the group-wise scales in GPTQ, AWQ and GGUF.</li>
+<li><b>Clipping as a trade.</b> Keep the outlier weights, per-tensor, and clip at the 99th percentile. A few weights are now badly wrong, but the rest get finer steps. Whether that is a good trade depends on how important the clipped values are.</li>
+<li><b>Dither.</b> Pick the quiet sine at 4 bits. Without dither, the error repeats with the signal (distortion). With TPDF dither the error turns into steady noise that no longer tracks the signal — the reason audio engineers dither when reducing bit depth.</li>
+<li><b>Truncation bias.</b> Switch rounding to "Truncate". The error now sits mostly on one side of zero, a systematic bias that round-to-nearest avoids.</li>
+</ol>
+<aside class="note"><p>Ready for the theory? Read <a href="{{root}}learn/what-is-quantization.html">what quantization is</a> for the maths of scale and zero-point, or <a href="{{root}}learn/ptq-vs-qat.html">PTQ vs QAT</a> for how real models choose their ranges.</p></aside>
+<section class="faq">
+<h2 id="faq">Frequently asked questions</h2>
+<details><summary>What is SQNR?</summary><p>Signal-to-quantization-noise ratio: the power of the original signal divided by the power of the quantization error, in decibels. Higher is better. For an ideal quantizer and a full-scale sine wave it is about 6.02 dB per bit plus 1.76 dB.</p></details>
+<details><summary>Why is symmetric quantization common for weights?</summary><p>Neural-network weights are roughly centred on zero, so a symmetric range wastes little and keeps the zero-point at 0, which makes integer matrix multiplication simpler and faster. Activations after functions such as ReLU are often one-sided, where asymmetric ranges use the levels better.</p></details>
+<details><summary>Does more clipping always help?</summary><p>No. Clipping reduces rounding error for typical values but creates large errors for the clipped ones. Calibration methods choose the clipping point that minimises a total error measure such as mean squared error or KL divergence.</p></details>
+</section>
+</div></section>

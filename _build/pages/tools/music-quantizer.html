@@ -1,0 +1,61 @@
+---
+title: MIDI Quantize & Swing Lab: Hear Strength and Swing | Quantization.com
+description: Interactive MIDI quantize demo. Play a loose drum loop, then quantize it to 1/8, 1/16 or triplet grids with adjustable strength and swing, and see every note move in ms.
+crumb: MIDI quantize and swing lab
+schema: webapp
+js: music.js
+---
+<section class="page-head" style="padding-top:26px"><div class="wrap">
+<h1>MIDI quantize and swing lab</h1>
+<p class="sub">A two-bar drum loop played a little loosely. Choose a grid, a quantize strength and a swing amount, then listen to the loose take and the quantized take back to back. Every note's movement is drawn and measured.</p>
+</div></section>
+
+<section class="section-tight"><div class="wrap">
+<div class="tool-shell">
+<div class="controls">
+<h2>Quantize settings</h2>
+<div class="field"><label for="mGrid">Grid</label><select id="mGrid"><option value="1/4">1/4 notes</option><option value="1/8">1/8 notes</option><option value="1/16" selected>1/16 notes</option><option value="1/8T">1/8 triplets</option><option value="1/16T">1/16 triplets</option></select></div>
+<div class="field"><label for="mStrength">Strength: <span class="num" id="mStrengthOut">100%</span></label><input type="range" id="mStrength" min="0" max="100" step="5" value="100"></div>
+<div class="field"><label for="mSwing">Swing: <span class="num" id="mSwingOut">50%</span></label><input type="range" id="mSwing" min="50" max="75" step="1" value="50"><span class="hint">50% is straight; about 66–67% is a triplet shuffle (drum-machine convention).</span></div>
+<h2 style="margin-top:18px">The performance</h2>
+<div class="field"><label for="mBpm">Tempo: <span class="num" id="mBpmOut">100</span> BPM</label><input type="range" id="mBpm" min="60" max="170" step="1" value="100"></div>
+<div class="field"><label for="mSloppy">Timing looseness: <span class="num" id="mSloppyOut">16 ms</span></label><input type="range" id="mSloppy" min="0" max="40" step="1" value="16"></div>
+<button class="btn btn-ghost btn-sm" type="button" id="mNew">Record a new loose take</button>
+</div>
+<div class="output">
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+<button class="btn btn-ghost" type="button" data-play="loose" aria-pressed="false">Play loose take</button>
+<button class="btn btn-primary" type="button" data-play="quant" aria-pressed="false">Play quantized take</button>
+<button class="btn btn-ghost" type="button" id="mStop">Stop</button>
+</div>
+<div class="canvas-wrap"><canvas class="pianoroll" id="mRoll" role="img" aria-label="Drum piano roll showing original note positions and their quantized positions"></canvas></div>
+<div class="keyline" style="margin:10px 0 14px"><span><i style="background:var(--signal);border-radius:50%"></i>As played</span><span><i style="background:var(--step)"></i>After quantize (opacity = velocity)</span><span><i style="background:var(--error)"></i>How far it moved</span></div>
+<div class="bigread" aria-live="polite">
+<div><div class="k">Average timing error before</div><div class="v err num" id="mBefore">—</div></div>
+<div><div class="k">Average distance from grid after</div><div class="v stp num" id="mAfter">—</div></div>
+<div><div class="k">Grid step</div><div class="v sig num" id="mStep">—</div></div>
+<div><div class="k">Swing delay</div><div class="v num" id="mSwingMs">—</div></div>
+</div>
+<div class="formula-strip" id="mWork"></div>
+<p class="tool-note">Audio is synthesised in your browser with the Web Audio API; nothing is uploaded. Headphones make small timing differences easier to hear.</p>
+</div>
+</div>
+</div></section>
+
+<section class="section"><div class="wrap prose" style="max-width:76ch">
+<h2 id="listen-for">What to listen for</h2>
+<ul>
+<li><b>100% strength, 1/16 grid:</b> perfectly on the grid. Tight, but with every hit at a slightly different velocity it can still sound alive. Compare it with the loose take — this is the classic "machine" feel.</li>
+<li><b>50–70% strength:</b> each note moves part of the way to the grid. The worst timing errors disappear while some of the player's push and pull survives. Many producers stop here.</li>
+<li><b>Swing 58–62%:</b> every second 16th note is delayed slightly. The hi-hats start to bounce without sounding like a shuffle.</li>
+<li><b>Swing 66%:</b> close to a triplet shuffle. At 100 BPM a 16th note lasts 150 ms; 66% swing delays the off-beat 16ths by about 48 ms.</li>
+<li><b>Wrong grid:</b> quantize a straight beat to 1/8 triplets and hear notes snap to the wrong places. Always match the grid to the smallest subdivision the part really uses.</li>
+</ul>
+<aside class="note"><p>The swing convention here follows classic drum machines: the percentage is the share of each pair of grid steps taken by the first note, so 50% means straight. Some DAWs label the same amounts on a 0–100% scale instead. Read the full <a href="{{root}}learn/music-quantize-guide.html">music quantize guide</a> for a conversion table.</p></aside>
+<section class="faq">
+<h2 id="faq">Frequently asked questions</h2>
+<details><summary>What does quantize strength do?</summary><p>It sets how far each note moves toward the nearest grid line, as a percentage of the distance. At 100% the note lands exactly on the grid; at 50% it moves halfway; at 0% nothing changes.</p></details>
+<details><summary>How do I calculate the length of a 16th note?</summary><p>Divide 60,000 by the tempo to get one beat in milliseconds, then divide by four. At 120 BPM a beat is 500 ms and a 16th note is 125 ms.</p></details>
+<details><summary>Should I quantize everything?</summary><p>Usually not. Quantize the parts that define the pulse — kick, snare, bass — more firmly, and leave hi-hats, percussion and melodic parts looser so the groove keeps some human movement.</p></details>
+</section>
+</div></section>

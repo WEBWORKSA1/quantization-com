@@ -1,0 +1,88 @@
+---
+title: LLM VRAM Calculator: Will It Fit on My GPU? | Quantization.com
+description: Free LLM VRAM calculator. Estimate weights, KV cache and overhead for Llama, Qwen, Gemma and more in GGUF, GPTQ, AWQ, FP8 or 4-bit, and check 22 GPUs and Macs.
+crumb: LLM VRAM calculator
+schema: webapp
+js: vram.js
+---
+<section class="page-head" style="padding-top:26px"><div class="wrap">
+<h1>LLM VRAM calculator</h1>
+<p class="sub">Pick a model, a quantization format and a context length. You get the memory for weights, KV cache and runtime overhead, a fit check across 22 GPUs and Macs, and the arithmetic behind every number.</p>
+</div></section>
+
+<section class="section-tight"><div class="wrap">
+<div class="tool-shell" id="vramTool">
+<div class="controls">
+<h2>Model and format</h2>
+<div class="field"><label for="vModel">Model</label><select id="vModel"></select><span class="hint" id="vModelNote"></span></div>
+<div class="row2 arch">
+<div class="field"><label for="vParams">Parameters (billions)</label><input id="vParams" type="number" step="0.01" min="0.05" inputmode="decimal"></div>
+<div class="field"><label for="vLayers">Layers</label><input id="vLayers" type="number" step="1" min="1" inputmode="numeric"></div>
+<div class="field"><label for="vKvHeads">KV heads</label><input id="vKvHeads" type="number" step="1" min="1" inputmode="numeric"></div>
+<div class="field"><label for="vHeadDim">Head dimension</label><input id="vHeadDim" type="number" step="1" min="8" inputmode="numeric"></div>
+</div>
+<div class="field"><label for="vFormat">Weight format</label><select id="vFormat"></select></div>
+<div class="field" id="vBpwWrap" hidden><label for="vBpw">Custom bits per weight</label><input id="vBpw" type="number" step="0.01" min="1" max="32" value="4" inputmode="decimal"></div>
+<h2 style="margin-top:20px">Context and serving</h2>
+<div class="field"><label for="vCtx">Context length (tokens)</label><input id="vCtx" type="number" step="512" min="256" max="1048576" value="8192" inputmode="numeric">
+<div class="seg" role="group" aria-label="Context presets" style="margin-top:6px"><button type="button" data-ctx="4096">4K</button><button type="button" data-ctx="8192">8K</button><button type="button" data-ctx="32768">32K</button><button type="button" data-ctx="131072">128K</button></div></div>
+<div class="row2">
+<div class="field"><label for="vBatch">Concurrent sequences</label><input id="vBatch" type="number" step="1" min="1" max="512" value="1" inputmode="numeric"></div>
+<div class="field"><label for="vKv">KV cache precision</label><select id="vKv"></select></div>
+</div>
+<h2 style="margin-top:20px">Hardware</h2>
+<div class="row2">
+<div class="field"><label for="vDevice">Device</label><select id="vDevice"></select></div>
+<div class="field"><label for="vGpus">Number of devices</label><input id="vGpus" type="number" min="1" max="16" step="1" value="1" inputmode="numeric"></div>
+</div>
+</div>
+
+<div class="output" aria-live="polite">
+<div class="bigread">
+<div><div class="k">Total memory</div><div class="v num"><span id="oTotal">—</span> <small>GB</small></div></div>
+<div><div class="k">Weights</div><div class="v sig num"><span id="oWeights">—</span> <small>GB</small></div></div>
+<div><div class="k">KV cache</div><div class="v stp num"><span id="oKv">—</span> <small>GB</small></div></div>
+<div><div class="k">Overhead</div><div class="v num" style="color:var(--gold)"><span id="oOver">—</span> <small>GB</small></div></div>
+</div>
+<div class="stack" id="stack" role="img" aria-label="Share of memory used by weights, KV cache and overhead"><span class="w"></span><span class="kv"></span><span class="o"></span></div>
+<div class="keyline"><span><i style="background:var(--signal)"></i>Weights</span><span><i style="background:var(--step)"></i>KV cache (<span id="oKvTok"></span>)</span><span><i style="background:var(--gold)"></i>Runtime overhead</span></div>
+<p id="oVerdict" style="font-weight:650;font-size:1.05rem;margin:18px 0 4px"></p>
+<p class="muted small" style="margin:0"><span id="oTps"></span> <span id="oCapNote"></span></p>
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px"><a class="btn btn-primary btn-sm" id="vLead" data-base="{{root}}get-optimized.html" href="{{root}}get-optimized.html">Get a free deployment plan for this setup</a><button class="btn btn-ghost btn-sm" type="button" id="vCopy">Copy link to this result</button></div>
+
+<h3 style="margin-top:28px;font-size:1.05rem">Same model and context, other formats</h3>
+<div class="bars" id="cmpBars"></div>
+
+<h3 style="margin-top:28px;font-size:1.05rem">Fit check across devices</h3>
+<div class="fit-list" id="fitList"></div>
+<p class="tool-note">Green fits with at least 5% headroom; amber is a tight fit; faded does not fit. Numbers show usable memory.</p>
+
+<h3 style="margin-top:24px;font-size:1.05rem">Show the working</h3>
+<div class="formula-strip" id="working"></div>
+</div>
+</div>
+</div></section>
+
+<section class="section"><div class="wrap prose" style="max-width:76ch">
+<h2 id="how-it-works">How the calculator works</h2>
+<p>Inference memory has three parts. <b>Weights</b> are the model's parameters stored in the chosen format: parameters × bits per weight ÷ 8 bytes. <b>KV cache</b> holds the attention keys and values for every token in the context, for every layer: 2 × layers × KV heads × head dimension × tokens × concurrent sequences × bytes per element. <b>Overhead</b> covers the runtime, CUDA context, activations and scratch buffers; we use 1 GB plus 5% of the weights, which matches what llama.cpp and similar runtimes typically report for single-user chat.</p>
+<p>Bits per weight for GGUF formats are the effective values the llama.cpp quantize tool reports for Llama 3.1 8B, so they include the higher-precision embedding and output tensors that k-quant mixes keep. Larger models come out very slightly smaller per parameter. For GPTQ, AWQ, MXFP4, NVFP4 and NF4 we add the cost of the per-group scales to the nominal 4 bits.</p>
+<h2 id="tokens-per-second">About the tokens-per-second ceiling</h2>
+<p>Generating each new token requires reading every weight once, plus the cached keys and values. Decoding is therefore usually limited by memory bandwidth, and bandwidth ÷ bytes read per token gives a theoretical ceiling. Real throughput is lower — often 50–80% of the ceiling — because of kernel efficiency, attention compute and software overhead. Treat it as an upper bound for comparing devices, not a promise.</p>
+<aside class="warn"><p>Mixture-of-experts models must keep every expert in memory, so memory follows the total parameter count, while speed follows the much smaller active parameter count. This calculator sizes memory correctly but its speed ceiling is conservative for MoE models.</p></aside>
+<h2 id="tips">Ways to make a model fit</h2>
+<ul>
+<li><b>Drop one quant level.</b> Q5_K_M to Q4_K_M saves about 14% of weight memory with a small quality cost.</li>
+<li><b>Quantize the KV cache.</b> 8-bit KV cache halves context memory and is close to lossless for most chat use. See <a href="{{root}}learn/kv-cache-quantization.html">KV cache quantization</a>.</li>
+<li><b>Shorten the context.</b> Many apps never use more than 8K–16K tokens; a 128K window you do not use still reserves memory in some servers.</li>
+<li><b>Offload layers to CPU.</b> llama.cpp can keep some layers in system RAM. It fits larger models at the cost of speed.</li>
+<li><b>Split across devices.</b> Two 24 GB GPUs hold what one 48 GB card holds, minus some duplication.</li>
+</ul>
+<section class="faq">
+<h2 id="faq">Frequently asked questions</h2>
+<details><summary>Why does my runtime report a slightly different number?</summary><p>Runtimes allocate memory in different ways: some reserve the full context up front, some grow it, and some keep extra buffers for batching or graph capture. Expect a difference of a few percent, more for servers tuned for throughput such as vLLM, which pre-allocates a fraction of all GPU memory by default.</p></details>
+<details><summary>Is GB here 10<sup>9</sup> or 2<sup>30</sup> bytes?</summary><p>2<sup>30</sup> bytes (a gibibyte). That matches how GPU memory is reported by drivers and how llama.cpp reports file sizes, so a "24 GB" card really offers about 24 of these units.</p></details>
+<details><summary>How much memory can a Mac's GPU use?</summary><p>By default macOS lets the GPU wire only part of unified memory; we assume about two-thirds on machines with up to 36 GB and three-quarters above that. Advanced users can raise the limit, but leave room for the operating system and apps.</p></details>
+<details><summary>Do I need extra memory for fine-tuning?</summary><p>Yes, much more. Training needs gradients and optimizer states as well as weights. Parameter-efficient methods such as QLoRA reduce this by keeping the base model in 4-bit and training small adapters, but this calculator is for inference only.</p></details>
+</section>
+</div></section>

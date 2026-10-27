@@ -1,0 +1,70 @@
+---
+title: Hydrogen Energy Level & Wavelength Calculator | Quantization.com
+description: Calculate hydrogen-like energy levels (−13.6 eV/n²), transition energy, photon wavelength, frequency and colour, plus particle-in-a-box energies, with the working shown.
+crumb: Energy levels calculator
+schema: webapp
+js: energy.js
+---
+<section class="page-head" style="padding-top:26px"><div class="wrap">
+<h1>Energy levels calculator</h1>
+<p class="sub">See quantization in nature: pick two levels of a hydrogen-like atom to get the photon's energy, wavelength and colour, or confine a particle to a box and watch its allowed energies.</p>
+</div></section>
+
+<section class="section-tight"><div class="wrap">
+<div class="tool-shell">
+<div class="controls">
+<h2>Atomic transition</h2>
+<div class="field"><label for="hZ">Nuclear charge Z</label><select id="hZ"><option value="1">1 — hydrogen (H)</option><option value="2">2 — helium ion (He⁺)</option><option value="3">3 — lithium ion (Li²⁺)</option></select></div>
+<div class="row2">
+<div class="field"><label for="hNi">From level n<sub>i</sub></label><input id="hNi" type="number" min="1" max="50" step="1" value="3" inputmode="numeric"></div>
+<div class="field"><label for="hNf">To level n<sub>f</sub></label><input id="hNf" type="number" min="1" max="50" step="1" value="2" inputmode="numeric"></div>
+</div>
+<p class="label" style="margin:6px 0">Famous lines</p>
+<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="chip" type="button" data-trans="3-2">Hα 3→2</button><button class="chip" type="button" data-trans="4-2">Hβ 4→2</button><button class="chip" type="button" data-trans="2-1">Lyman-α 2→1</button><button class="chip" type="button" data-trans="4-3">Paschen-α 4→3</button><button class="chip" type="button" data-trans="1-3">Absorb 1→3</button></div>
+</div>
+<div class="output" aria-live="polite">
+<p id="hOut" style="font-weight:650;margin:0 0 12px"></p>
+<div class="bigread">
+<div><div class="k">Photon energy</div><div class="v err num" id="hDE">—</div></div>
+<div><div class="k">Wavelength</div><div class="v sig num" id="hLam">—</div></div>
+<div><div class="k">Frequency</div><div class="v stp num" id="hFreq">—</div></div>
+</div>
+<div class="grid g2" style="gap:12px;align-items:center"><div class="swatch" id="hSwatch" aria-hidden="true"></div><div><div class="muted small">Region of the spectrum</div><div class="num" id="hRegion">—</div></div></div>
+<div class="canvas-wrap" style="margin-top:14px"><canvas id="eLadder" style="height:280px" role="img" aria-label="Energy level ladder with the selected transition drawn as an arrow"></canvas></div>
+<div class="formula-strip" id="hWork"></div>
+<p class="tool-note">Bohr-model values with an infinitely heavy nucleus. Including the reduced mass of the electron shifts hydrogen lines by about 0.05%, so Hα comes out at 656.1 nm here versus about 656.5 nm measured in vacuum.</p>
+</div>
+</div>
+
+<div class="tool-shell" style="margin-top:28px">
+<div class="controls">
+<h2>Particle in a box</h2>
+<div class="field"><label for="bMass">Particle</label><select id="bMass"><option value="e">Electron</option><option value="p">Proton</option><option value="x">Custom (multiples of electron mass)</option></select></div>
+<div class="field" id="bCustomWrap" hidden><label for="bCustom">Mass (× mₑ)</label><input id="bCustom" type="number" min="0.001" step="0.01" value="0.067" inputmode="decimal"><span class="hint">0.067 is the effective electron mass in gallium arsenide.</span></div>
+<div class="row2">
+<div class="field"><label for="bL">Box width L (nm)</label><input id="bL" type="number" min="0.01" step="0.1" value="1" inputmode="decimal"></div>
+<div class="field"><label for="bN">Level n</label><input id="bN" type="number" min="1" max="100" step="1" value="1" inputmode="numeric"></div>
+</div>
+</div>
+<div class="output" aria-live="polite">
+<div class="bigread">
+<div><div class="k">Energy E<sub>n</sub></div><div class="v stp num" id="bE">—</div></div>
+<div><div class="k">In joules</div><div class="v num" id="bEJ" style="font-size:1.3rem">—</div></div>
+<div><div class="k">Photon for n → n−1</div><div class="v sig num" id="bLam">—</div></div>
+</div>
+<div class="formula-strip" id="bWork"></div>
+<p class="tool-note">Constants: h = 6.62607015 × 10⁻³⁴ J·s (exact in the SI since 2019), mₑ and mₚ from CODATA 2022. An electron in a 1 nm box has a ground-state energy of about 0.376 eV.</p>
+</div>
+</div>
+</div></section>
+
+<section class="section"><div class="wrap prose" style="max-width:76ch">
+<h2 id="why-discrete">Why the answers come in steps</h2>
+<p>An electron bound to a nucleus, or a particle trapped between walls, behaves as a wave that must fit its boundaries. Only certain standing-wave patterns fit, and each has a definite energy. Change level and the energy difference leaves or arrives as a single photon with E = hf = hc/λ. That is why hydrogen glows at a few sharp wavelengths instead of a smooth rainbow. Read the full story in <a href="{{root}}learn/quantization-in-physics.html">quantization in physics</a>.</p>
+<section class="faq">
+<h2 id="faq">Frequently asked questions</h2>
+<details><summary>Why is the ground-state energy of hydrogen −13.6 eV?</summary><p>The negative sign means the electron is bound: it takes 13.6 eV to pull it free from the ground state. Higher levels are less tightly bound, approaching 0 eV as n grows.</p></details>
+<details><summary>Which hydrogen lines are visible?</summary><p>The Balmer series, which ends on level 2. Its first four lines are near 656, 486, 434 and 410 nm: red, blue-green and two violets.</p></details>
+<details><summary>How is this related to quantization in AI or audio?</summary><p>Only by analogy. In computing we choose to round values onto a grid; in physics the discreteness comes from nature. Both produce a ladder of allowed values with gaps in between.</p></details>
+</section>
+</div></section>

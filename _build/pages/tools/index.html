@@ -1,0 +1,34 @@
+---
+title: Free Quantization Tools & Calculators | Quantization.com
+description: Free quantization calculators: LLM VRAM and GPU fit, interactive bit-depth playground, ADC SQNR and ENOB, MIDI quantize and swing lab, and atomic energy levels.
+crumb: Tools
+---
+<section class="page-head"><div class="wrap">
+<h1>Tools that show their working</h1>
+<p class="sub">Five calculators and interactive labs, one for each kind of quantization. They run entirely in your browser, store nothing on a server, and print the formula behind every result so you can check it.</p>
+</div></section>
+<section class="section-tight"><div class="wrap">
+<div class="rack">{{tool_rows}}</div>
+</div></section>
+<section class="section"><div class="wrap grid g2" style="gap:40px;align-items:start">
+<div class="prose">
+<h2 id="which-tool">Which tool do I need?</h2>
+<ul>
+<li><b>Downloading a local model</b> and wondering if it will run? Start with the <a href="{{root}}tools/vram-calculator.html">VRAM calculator</a>, then compare candidates in the <a href="{{root}}formats.html">formats atlas</a>.</li>
+<li><b>Learning how quantization works</b> or teaching it? The <a href="{{root}}tools/quantization-playground.html">playground</a> shows scale, zero-point, clipping and error on real data.</li>
+<li><b>Choosing an ADC or audio format?</b> The <a href="{{root}}tools/adc-calculator.html">ADC calculator</a> covers LSB, SQNR, ENOB, oversampling and file sizes.</li>
+<li><b>Producing music?</b> Hear strength and swing in the <a href="{{root}}tools/music-quantizer.html">quantize lab</a>.</li>
+<li><b>Studying physics or chemistry?</b> Work transitions in the <a href="{{root}}tools/energy-levels.html">energy levels calculator</a>.</li>
+</ul>
+</div>
+<div class="panel">
+<h2 style="font-size:1.3rem">Suggest the next tool</h2>
+<p class="muted">Tell us the calculation you keep doing by hand. The most-requested ideas get built first.</p>
+<form class="js-form" data-subject="Tool suggestion" data-ok="Thanks — your idea is on the list.">
+<div class="field"><label for="tsIdea">What should it calculate?</label><textarea id="tsIdea" name="idea" required placeholder="e.g. tokens per second for my GPU at different batch sizes"></textarea></div>
+<div class="field"><label for="tsEmail">Email (optional, if you want to hear when it ships)</label><input id="tsEmail" type="email" name="email" autocomplete="email"></div>
+<input class="hp" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true">
+<button class="btn btn-primary" type="submit">Send suggestion</button><div class="form-msg" role="status"></div>
+</form>
+</div>
+</div></section>

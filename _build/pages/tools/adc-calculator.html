@@ -1,0 +1,118 @@
+---
+title: ADC Resolution, SQNR & ENOB Calculator (Bit Depth) | Quantization.com
+description: Free ADC calculator: LSB size, quantization noise, ideal SNR (6.02N + 1.76 dB), ENOB from SINAD, oversampling and noise-shaping gain, and audio file size by bit depth.
+crumb: ADC and bit-depth calculator
+schema: webapp
+js: adc.js
+---
+<section class="page-head" style="padding-top:26px"><div class="wrap">
+<h1>ADC and bit-depth calculator</h1>
+<p class="sub">Four converter questions in one place: how big is one step, what signal-to-noise can the bits deliver, how many bits does a measured SINAD really give, and what does oversampling or a higher bit depth cost.</p>
+</div></section>
+
+<section class="section-tight"><div class="wrap">
+<div class="seg tool-tabs" role="group" aria-label="Calculator" style="margin-bottom:20px">
+<button type="button" data-panel="resolution" aria-pressed="true">Resolution and SQNR</button>
+<button type="button" data-panel="enob" aria-pressed="false">ENOB and required bits</button>
+<button type="button" data-panel="oversampling" aria-pressed="false">Oversampling</button>
+<button type="button" data-panel="filesize" aria-pressed="false">Audio file size</button>
+</div>
+
+<div class="tool-shell adc-panel" id="resolution">
+<div class="controls">
+<h2>Converter</h2>
+<div class="field"><label for="aBits">Resolution (bits)</label><input id="aBits" type="number" min="1" max="32" step="1" value="12" inputmode="numeric"></div>
+<div class="field"><label for="aFsr">Full-scale range (volts)</label><input id="aFsr" type="number" min="0" step="0.001" value="3.3" inputmode="decimal"><span class="hint">For a unipolar 0–3.3 V ADC enter 3.3; for a ±5 V bipolar input enter 10.</span></div>
+<div class="field"><label for="aPol">Input type</label><select id="aPol"><option value="uni">Unipolar</option><option value="bi">Bipolar (two's complement)</option></select></div>
+</div>
+<div class="output" aria-live="polite">
+<div class="bigread">
+<div><div class="k">LSB (one step)</div><div class="v stp num" id="rLsb">—</div></div>
+<div><div class="k">Ideal SQNR (full-scale sine)</div><div class="v sig num" id="rSqnr">—</div></div>
+<div><div class="k">Quantization noise rms</div><div class="v err num" id="rNoise">—</div></div>
+</div>
+<div class="grid g3" style="gap:10px">
+<div class="panel-sunk"><div class="muted small">Codes</div><div class="num" id="rLevels">—</div></div>
+<div class="panel-sunk"><div class="muted small">Dynamic range, 20·log<sub>10</sub>(2<sup>N</sup>)</div><div class="num" id="rDr">—</div></div>
+<div class="panel-sunk"><div class="muted small">Input span of the codes</div><div class="num small" id="rRange">—</div></div>
+</div>
+<div class="formula-strip" id="rWork"></div>
+<p class="tool-note">Convention: LSB = full-scale range ÷ 2<sup>N</sup>. Some datasheets divide by 2<sup>N</sup> − 1; the difference matters only at very low resolutions. Real converters fall short of the ideal SQNR because of thermal noise, jitter and nonlinearity — use ENOB for those.</p>
+</div>
+</div>
+
+<div class="tool-shell adc-panel" id="enob" hidden>
+<div class="controls">
+<h2>Measured performance</h2>
+<div class="field"><label for="eSinad">Measured SINAD (dB)</label><input id="eSinad" type="number" step="0.1" value="72" inputmode="decimal"><span class="hint">Signal-to-noise-and-distortion from the datasheet or your FFT.</span></div>
+<h2 style="margin-top:18px">Requirement</h2>
+<div class="field"><label for="eTarget">Target SNR (dB)</label><input id="eTarget" type="number" step="0.1" value="96" inputmode="decimal"></div>
+</div>
+<div class="output" aria-live="polite">
+<div class="bigread">
+<div><div class="k">Effective number of bits</div><div class="v stp num" id="eOut">—</div></div>
+<div><div class="k">Bits needed for target</div><div class="v sig num" id="eNeed">—</div></div>
+</div>
+<div class="formula-strip">ENOB = (SINAD − 1.76) ÷ 6.02 &nbsp;·&nbsp; N<sub>required</sub> = (SNR<sub>target</sub> − 1.76) ÷ 6.02</div>
+<p class="tool-note">Example: a converter marketed as 16-bit that measures 84 dB SINAD behaves like an ideal 13.7-bit converter.</p>
+</div>
+</div>
+
+<div class="tool-shell adc-panel" id="oversampling" hidden>
+<div class="controls">
+<h2>Sampling</h2>
+<div class="row2">
+<div class="field"><label for="oFs">Sample rate (Hz)</label><input id="oFs" type="number" min="1" step="1" value="3072000" inputmode="numeric"></div>
+<div class="field"><label for="oBw">Signal bandwidth (Hz)</label><input id="oBw" type="number" min="1" step="1" value="20000" inputmode="numeric"></div>
+</div>
+<div class="row2">
+<div class="field"><label for="oBits">Quantizer bits</label><input id="oBits" type="number" min="1" max="32" step="1" value="1" inputmode="numeric"></div>
+<div class="field"><label for="oOrder">Noise-shaping order</label><select id="oOrder"><option value="0">None (plain oversampling)</option><option value="1">1st order</option><option value="2" selected>2nd order</option><option value="3">3rd order</option><option value="4">4th order</option><option value="5">5th order</option></select></div>
+</div>
+</div>
+<div class="output" aria-live="polite">
+<div class="bigread">
+<div><div class="k">Oversampling ratio</div><div class="v sig num" id="oOsr">—</div></div>
+<div><div class="k">In-band SQNR gain</div><div class="v stp num" id="oGain">—</div></div>
+<div><div class="k">Equivalent extra bits</div><div class="v num" id="oBitsGain">—</div></div>
+</div>
+<div class="panel-sunk"><div class="muted small">Ideal in-band SQNR</div><div class="num" style="font-size:1.4rem" id="oTotal">—</div></div>
+<div class="formula-strip" id="oWork"></div>
+<p class="tool-note">Plain oversampling adds about 3 dB (half a bit) per doubling of the sample rate. Noise shaping pushes quantization noise above the band of interest, which is how a 1-bit delta-sigma converter reaches high resolution. These are ideal-model figures; real modulators are limited by stability and analog noise.</p>
+</div>
+</div>
+
+<div class="tool-shell adc-panel" id="filesize" hidden>
+<div class="controls">
+<h2>Recording</h2>
+<div class="row2">
+<div class="field"><label for="fRate">Sample rate</label><select id="fRate"><option value="44100">44.1 kHz</option><option value="48000" selected>48 kHz</option><option value="88200">88.2 kHz</option><option value="96000">96 kHz</option><option value="192000">192 kHz</option></select></div>
+<div class="field"><label for="fBits">Bit depth</label><select id="fBits"><option value="16">16-bit</option><option value="24" selected>24-bit</option><option value="32">32-bit float</option></select></div>
+</div>
+<div class="row2">
+<div class="field"><label for="fCh">Channels</label><input id="fCh" type="number" min="1" max="128" step="1" value="2" inputmode="numeric"></div>
+<div class="field"><label for="fMin">Duration (minutes)</label><input id="fMin" type="number" min="0" step="0.5" value="60" inputmode="decimal"></div>
+</div>
+</div>
+<div class="output" aria-live="polite">
+<div class="bigread">
+<div><div class="k">Uncompressed size</div><div class="v sig num" id="fSize">—</div></div>
+<div><div class="k">Data rate</div><div class="v stp num" id="fRateOut">—</div></div>
+<div><div class="k">Theoretical dynamic range</div><div class="v num" id="fDr">—</div></div>
+</div>
+<div class="formula-strip">bytes = sample rate × bit depth × channels × seconds ÷ 8 (PCM, excluding the small file header)</div>
+</div>
+</div>
+</div></section>
+
+<section class="section"><div class="wrap prose" style="max-width:76ch">
+<h2 id="background">Where these formulas come from</h2>
+<p>An ideal N-bit converter divides its full-scale range into 2<sup>N</sup> steps. Rounding each sample to the nearest step leaves an error between −½ and +½ LSB. For busy signals that error behaves like uniformly distributed noise with variance LSB²/12, so its rms value is LSB ÷ √12 ≈ 0.29 LSB. Dividing the power of a full-scale sine wave by that noise power gives the familiar SQNR ≈ 6.02N + 1.76 dB. Our <a href="{{root}}learn/adc-quantization-error.html">ADC quantization guide</a> walks through the derivation step by step.</p>
+<div class="example"><h3>Worked example: 12-bit, 3.3 V</h3><p>LSB = 3.3 ÷ 4096 ≈ 0.806 mV. Noise rms ≈ 0.806 ÷ 3.464 ≈ 0.233 mV. Ideal SQNR = 6.02 × 12 + 1.76 = 74.0 dB.</p></div>
+<section class="faq">
+<h2 id="faq">Frequently asked questions</h2>
+<details><summary>Why does my 24-bit audio interface not reach 146 dB?</summary><p>Analog noise in the input stage and the converter itself sets the real floor. The best converters measure somewhere around 120–125 dB, so the lowest bits of a 24-bit word are noise. The extra word length still matters: it keeps quantization noise far below that analog floor.</p></details>
+<details><summary>Does SQNR depend on the signal?</summary><p>Yes. The 6.02N + 1.76 dB figure assumes a full-scale sine. A signal 20 dB below full scale gets 20 dB less SQNR, and very quiet or simple signals produce error that is correlated with the signal rather than noise-like, which is where dither helps.</p></details>
+<details><summary>What is the difference between SNR, SINAD and SQNR?</summary><p>SQNR counts only quantization noise. SNR counts all noise but excludes harmonic distortion. SINAD counts noise and distortion together, which is why ENOB is computed from SINAD.</p></details>
+</section>
+</div></section>
