@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Audio bit depth and dither explained | Quantization.com</title>
+<meta name="description" content="16-bit vs 24-bit vs 32-bit float audio, why converters never reach 144 dB, truncation distortion, RPDF, TPDF and noise-shaped dither, and file size math.">
+<link rel="canonical" href="https://quantization.com/learn/audio-bit-depth-dither.html">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#121A2E">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Quantization.com">
+<meta property="og:title" content="Audio bit depth and dither: 16-bit, 24-bit, 32-bit float">
+<meta property="og:description" content="16-bit vs 24-bit vs 32-bit float audio, why converters never reach 144 dB, truncation distortion, RPDF, TPDF and noise-shaped dither, and file size math.">
+<meta property="og:url" content="https://quantization.com/learn/audio-bit-depth-dither.html">
+<meta property="og:image" content="https://quantization.com/assets/img/og.svg">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/img/icon.svg">
+<link rel="manifest" href="../site.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wdth,wght@75..100,400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/site.css">
+<script>try{var t=localStorage.getItem('qz-theme');if(t)document.documentElement.setAttribute('data-theme',t);if(localStorage.getItem('qz-consent')==='essential'){(window.adsbygoogle=window.adsbygoogle||[]).requestNonPersonalizedAds=1}}catch(e){}</script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6620975821265271" crossorigin="anonymous"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Quantization.com","url":"https://quantization.com/","logo":"https://quantization.com/assets/img/icon.svg"}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Audio bit depth and dither: 16-bit, 24-bit, 32-bit float","description":"16-bit vs 24-bit vs 32-bit float audio, why converters never reach 144 dB, truncation distortion, RPDF, TPDF and noise-shaped dither, and file size math.","datePublished":"2026-10-27","dateModified":"2026-10-27","wordCount":2043,"author":{"@type":"Organization","name":"Quantization.com editorial team","url":"https://quantization.com/about.html"},"publisher":{"@type":"Organization","name":"Quantization.com","logo":{"@type":"ImageObject","url":"https://quantization.com/assets/img/icon.svg"}},"mainEntityOfPage":"https://quantization.com/learn/audio-bit-depth-dither.html","image":"https://quantization.com/assets/img/og.svg"}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://quantization.com/"},{"@type":"ListItem","position":2,"name":"Learn","item":"https://quantization.com/learn/"},{"@type":"ListItem","position":3,"name":"Audio bit depth and dither: 16-bit, 24-bit, 32-bit float","item":"https://quantization.com/learn/audio-bit-depth-dither.html"}]}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Should I record at 24-bit or 32-bit float?","acceptedAnswer":{"@type":"Answer","text":"For controlled sessions with sensible gain staging, 24-bit already exceeds any converter's analog range. 32-bit float recording is most useful when levels are unpredictable, such as field and event recording, because a level set too hot can be recovered later as long as the analog stage did not clip."}},{"@type":"Question","name":"Is dither needed when exporting MP3 or AAC?","acceptedAnswer":{"@type":"Answer","text":"Lossy encoders discard and re-code the signal in their own way. The step that needs dither is any fixed-point PCM file you create at reduced word length, such as a 16-bit WAV made before encoding. If your encoder accepts the 24-bit or float master directly, that intermediate reduction, and its dither, can be skipped."}},{"@type":"Question","name":"Why does a dithered 16-bit file measure about 93 dB SNR instead of 98 dB?","acceptedAnswer":{"@type":"Answer","text":"TPDF dither triples the error power, from Δ²/12 to Δ²/4, a 4.8 dB rise. That small cost buys an error that is independent of the signal."}},{"@type":"Question","name":"Can I dither twice by accident?","acceptedAnswer":{"@type":"Answer","text":"Yes. A plug-in on the master bus plus a dither option in the export dialog applies two stages. Use one or the other, and make sure nothing processes the audio after it."}},{"@type":"Question","name":"Does a higher bit depth improve high-frequency detail?","acceptedAnswer":{"@type":"Answer","text":"No. Frequency range is set by the sample rate. Bit depth only sets the noise floor and therefore the usable dynamic range."}}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="ownerbar" role="note"><a href="https://web.works/contact" target="_blank" rel="noopener">Contact, if you are interested in this website/domain name/Sponsorship/Advertisement/Partnership</a></div>
+<header class="site"><div class="wrap nav">
+<a class="logo" href="../index.html" aria-label="Quantization.com home"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x=".5" y=".5" width="31" height="31" rx="8" fill="#121A2E" stroke="var(--rule-2)"/><path d="M5 20c3-11 7-11 11 0s7 11 11 0" fill="none" stroke="var(--signal)" stroke-width="2" opacity=".9"/><path d="M5 22h4v-6h4v-5h6v5h4v6h4" fill="none" stroke="var(--step)" stroke-width="2.4" stroke-linejoin="round"/></svg><span>Quantization<span class="tld">.com</span></span></a>
+<ul class="menu" id="menu"><li><a href="../index.html">Home</a></li><li><a href="../tools/index.html">Tools</a></li><li><a href="../learn/index.html" class="active" aria-current="page">Learn</a></li><li><a href="../formats.html">Formats</a></li><li><a href="../videos.html">Videos</a></li><li><a href="../resources.html">Resources</a></li><li><a href="../challenge.html">Challenge</a></li><li><a href="../support.html">Support</a></li></ul>
+<div class="nav-cta"><a class="btn btn-primary btn-sm btn-head" href="../get-optimized.html">Free optimization plan</a>
+<button class="icon-btn" id="themeBtn" type="button" aria-label="Switch light or dark theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 4v16" /><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg></button>
+<button class="icon-btn burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button></div>
+</div></header>
+<main id="main">
+<nav class="crumbs wrap" aria-label="Breadcrumb"><a href="../index.html">Home</a> <span aria-hidden="true">/</span> <a href="../learn/index.html">Learn</a> <span aria-hidden="true">/</span> <span aria-current="page">Audio bit depth and dither: 16-bit, 24-bit, 32-bit float</span></nav>
+<article class="wrap">
+<header class="art-head">
+<span class="track track-signal">Signals & audio</span>
+<h1>Audio bit depth and dither: 16-bit, 24-bit, 32-bit float</h1>
+<div class="art-meta"><span>By the Quantization.com editorial team</span><span>Updated <time datetime="2026-10-27">October 27, 2026</time></span><span>9 min read</span></div>
+</header>
+<div class="art-layout">
+<div class="prose">
+<p class="lede">Bit depth sets how finely each audio sample's level is stored. It fixes the quantization noise floor at roughly 6 dB per bit: about 96 dB of range for 16-bit and 144 dB for 24-bit. Dither is a small, deliberate noise added when you cut the bit depth, so the lost bits turn into a smooth hiss instead of distortion. Apply it once, at the final reduction, for example 24-bit to 16-bit for CD.</p>
+
+<h2 id="what-bit-depth-means">What bit depth controls, and what it doesn't</h2>
+<p>Every PCM sample is a number. With N bits, a fixed-point sample can take 2<sup>N</sup> values: 65,536 for 16-bit and 16,777,216 for 24-bit. Bit depth has nothing to do with frequency response; that comes from the sample rate. It sets how accurately each sample's amplitude is stored, and therefore how far below full scale the noise floor sits.</p>
+<p>The standard rule comes from the ideal-converter analysis in our <a href="../learn/adc-quantization-error.html">ADC quantization guide</a>. The ratio of full scale to one step is 20·log<sub>10</sub>(2<sup>N</sup>) = 6.02N dB. The ratio of a full-scale sine to the RMS rounding noise is 6.02N + 1.76 dB.</p>
+
+<div class="table-wrap"><table><caption>Theoretical range of fixed-point PCM</caption><thead><tr><th>Format</th><th>Levels</th><th>6.02N</th><th>Full-scale sine SQNR</th></tr></thead><tbody>
+<tr><td>16-bit</td><td>65,536</td><td>96.3 dB</td><td>98.1 dB</td></tr>
+<tr><td>20-bit</td><td>1,048,576</td><td>120.4 dB</td><td>122.2 dB</td></tr>
+<tr><td>24-bit</td><td>16,777,216</td><td>144.5 dB</td><td>146.2 dB</td></tr>
+</tbody></table></div>
+<p>The familiar "96 dB" and "144 dB" are the 6.02N figures. Both are ceilings for an ideal quantizer with no dither, and both describe the storage format, not any real device.</p>
+
+<h3>Why 24-bit converters never reach 144 dB</h3>
+<p>A 24-bit word can represent 144 dB of range, but the analog circuit feeding the converter cannot deliver it. Resistors, op-amps, the voltage reference and the converter's own modulator all produce noise well above a 24-bit LSB.</p>
+<p>A quick calculation shows the limit. Johnson (thermal) noise in a resistor is √(4kTRB). For a 1 kΩ source at 300 K over a 20 kHz audio band:</p>
+<div class="formula">√(4 × 1.380649×10<sup>−23</sup> × 300 × 1,000 × 20,000) ≈ 0.58 µV RMS</div>
+<p>If full scale is a 2 V RMS sine, that single resistor sets a ceiling of 20·log<sub>10</sub>(2 / 0.58×10<sup>−6</sup>) ≈ 131 dB, and a real input stage has many such noise sources. Datasheets agree. TI lists its PCM4222 audio converter at 123 dB A-weighted dynamic range (121 dB unweighted over 20 kHz) for 24-bit PCM output. Sound Devices' technical notes put the best single audio converters at roughly 130 dB. At about 6 dB per bit, 123 dB is roughly 20 bits; the lowest bits of a 24-bit recording are analog noise.</p>
+<aside class="note"><p>That is still useful. With a 24-bit recorder you can leave 18 dB of headroom above your loudest expected peak and still keep the format's quantization floor about 126 dB below those peaks. The floor sits under the converter's analog noise, so the safety margin costs nothing.</p></aside>
+
+<h2 id="32-bit-float">What 32-bit float gives you</h2>
+<p>A 32-bit IEEE 754 float stores a sign, an 8-bit exponent and a 24-bit significand (23 bits stored plus an implied leading 1). Audio software treats ±1.0 as 0 dBFS. Two properties follow.</p>
+<ul>
+<li><strong>Constant relative precision.</strong> Each value carries a 24-bit significand, so rounding error stays roughly 2<sup>−24</sup> of the value, around 144 dB below the signal, whether it is loud or very quiet.</li>
+<li><strong>Enormous range.</strong> The largest normal value is about 3.4×10<sup>38</sup> and the smallest about 1.18×10<sup>−38</sup>, a span of about 1,529 dB. About 770 dB of that sits above 0 dBFS. Inside a float mix, a bus that peaks at +12 dBFS is not clipped; pull the master fader down and the waveform is intact.</li>
+</ul>
+<p>The headroom only exists inside the float chain. A DAC, a 24-bit export or a fixed-point plug-in still clips anything above 0 dBFS. Recorders that write 32-bit float files do not capture 1,500 dB of real range. Sound Devices describes combining multiple converter stages to reach over 142 dB at the input. The float file just guarantees that this range is never clipped or lost by a gain setting.</p>
+
+<div class="cta-box"><div><h3>One clear explainer a week</h3><p>New tools, guides and formats across AI, signals, audio and physics. No spam; unsubscribe any time.</p></div>
+<form class="js-form inline-form" data-subject="Newsletter signup" data-ok="You're subscribed. The next issue lands next week."><input type="email" name="email" required placeholder="you@example.com" aria-label="Email address"><input class="hp" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true"><input type="hidden" name="list" value="Weekly explainer"><button class="btn btn-primary" type="submit">Subscribe</button><div class="form-msg" role="status"></div></form></div>
+
+<h2 id="truncation-distortion">Truncation distortion at low levels</h2>
+<p>Reducing word length means throwing bits away. The crude way is to truncate (or round) each sample to the nearest 16-bit value. For loud, complex music the resulting error looks like random noise. For quiet material it does not.</p>
+<div class="example"><h3>Worked example: a −90 dBFS tone at 16 bits</h3>
+<p>16-bit full scale is 32,768 steps from zero to peak. A sine at −90 dBFS has a peak of 32,768 × 10<sup>−90/20</sup> ≈ 1.04 LSB. Rounded without dither, the waveform can take only three values (−1, 0, +1), so the smooth sine becomes a stepped, square-like wave. The error now repeats with the signal. It is no longer noise but harmonic distortion: tones at multiples of the input frequency, which can alias into unrelated frequencies. As the tone fades further, it drops into silence instead of into the noise floor.</p></div>
+<p>This is the sound of undithered reverb tails, fade-outs and quiet piano decays: a grainy buzz that changes with the music. Sound On Sound's technical editor points out that truncation distortion can be subtle at normal levels but is exposed in fades. The DSP Guide describes the same failure for slowly changing signals.</p>
+
+<h2 id="dither-types">Dither types: RPDF, TPDF and noise shaping</h2>
+<p>Dither is random noise added just before the word length is reduced. It shifts each sample's rounding decision at random, so the average output follows the input even below one LSB. Lipshitz, Wannamaker and Vanderkooy's 1992 survey in the <em>Journal of the Audio Engineering Society</em> set out what each dither type actually achieves.</p>
+<h3>RPDF: rectangular, 1 LSB peak to peak</h3>
+<p>RPDF dither is uniform noise spanning ±½ LSB. It makes the <em>average</em> error zero for every input, which removes the distortion. But the <em>power</em> of the error still depends on the signal, so the hiss changes level as the music moves. The survey calls this noise modulation and judges it audibly undesirable.</p>
+<h3>TPDF: triangular, 2 LSB peak to peak</h3>
+<p>Add two independent RPDF sources and you get a triangular distribution spanning ±1 LSB. TPDF makes both the mean and the variance of the error independent of the signal, so what remains sounds like steady white hiss. The cost is noise: the total error variance becomes Δ²/4 instead of Δ²/12, three times the power, or 10·log<sub>10</sub>3 ≈ 4.8 dB. A dithered 16-bit channel therefore has about 98.1 − 4.8 ≈ 93.3 dB SNR for a full-scale sine. The survey identifies TPDF as the lowest-noise non-subtractive dither that fully removes both distortion and noise modulation, which is why it is the default.</p>
+<h3>Noise-shaped dither</h3>
+<p>Noise shaping feeds the requantization error back through a filter so the noise spectrum is tilted: less noise in the midrange, where hearing is most sensitive, and more near the top of the audio band. Total noise power is not reduced, but the noise is harder to hear. Commercial mastering tools offer many proprietary curves. Because the shaped noise is concentrated at high frequencies, it should be the very last process. Further gain changes, sample rate conversion or lossy encoding can disturb the curve, and the added top-end noise can then be the most audible noise left in the file.</p>
+<aside class="warn"><p>Dither noise can push peaks that are limited exactly to 0 dBFS into clipping. Sound On Sound recommends a limiter ceiling of roughly −0.3 to −1 dBFS to leave room for it.</p></aside>
+
+<h2 id="when-to-dither">When to dither, and when not to</h2>
+<ul>
+<li><strong>Dither whenever word length is reduced and the error would otherwise be correlated with the signal.</strong> The classic case is the final 24-bit or 32-bit float master going to a 16-bit CD or 16-bit streaming file.</li>
+<li><strong>Dither once.</strong> Every dither stage adds its own noise. Keep the whole mix and mastering chain at 24-bit or float and reduce to 16-bit as the final export step.</li>
+<li><strong>Going from 32-bit float to 24-bit</strong> technically reduces word length too. The rounding error there is more than 140 dB below full scale, far under any converter's analog noise, so dither is optional; applying TPDF is harmless.</li>
+<li><strong>Do not dither</strong> when increasing bit depth (16 to 24) or when the format stays float. No information is discarded, so there is nothing to linearize.</li>
+</ul>
+
+<h2 id="file-size">File size math</h2>
+<p>Uncompressed PCM size is simple multiplication:</p>
+<div class="formula">bytes = sample rate × bit depth × channels × seconds / 8</div>
+<p class="formula-note">Divide by 8 to convert bits to bytes. WAV and AIFF add a small header; lossless compression such as FLAC reduces the stored size without changing the decoded samples.</p>
+<div class="example"><h3>Worked example: a 3-minute stereo track</h3>
+<ul>
+<li>48 kHz, 24-bit: 48,000 × 24 × 2 × 180 / 8 = <strong>51,840,000 bytes ≈ 51.8 MB</strong> (49.4 MiB)</li>
+<li>Same track at 32-bit float: 48,000 × 32 × 2 × 180 / 8 = 69,120,000 bytes ≈ 69.1 MB</li>
+<li>CD format, 44.1 kHz 16-bit: 44,100 × 16 × 2 = 1,411,200 bit/s, so 180 s = 31,752,000 bytes ≈ 31.8 MB</li>
+</ul>
+<p>At the same sample rate, 24-bit files are 50% larger than 16-bit, and 32-bit float files are twice the size.</p></div>
+<div class="cta-box"><div><h3>Try it: ADC and bit-depth calculator</h3><p>LSB size, ideal SNR, ENOB from measured SINAD, oversampling gain and audio file size in one panel.</p></div><a class="btn btn-ghost" href="../tools/adc-calculator.html">Open the tool</a></div>
+<p>To hear and see truncation steps, error signals and SQNR change as you lower the bit depth, open the <a href="../tools/quantization-playground.html">quantization playground</a>.</p>
+
+<div class="takeaways"><h2 id="takeaways">Key takeaways</h2><ul>
+<li>Each bit adds about 6 dB of range: 96 dB for 16-bit, 144 dB for 24-bit, in theory.</li>
+<li>Real 24-bit converters reach roughly 120–130 dB because analog thermal noise dominates.</li>
+<li>32-bit float holds about 24 bits of precision at any level plus vast headroom above 0 dBFS, but only inside the float chain.</li>
+<li>Truncating quiet material produces signal-correlated distortion, most audible in fades and reverb tails.</li>
+<li>TPDF dither at ±1 LSB removes distortion and noise modulation for a 4.8 dB noise penalty; noise shaping makes that noise less audible.</li>
+<li>Dither once, at the final reduction of word length.</li>
+</ul></div>
+
+<section class="faq"><h2 id="faq">Frequently asked questions</h2>
+<details><summary>Should I record at 24-bit or 32-bit float?</summary><p>For controlled sessions with sensible gain staging, 24-bit already exceeds any converter's analog range. 32-bit float recording is most useful when levels are unpredictable, such as field and event recording, because a level set too hot can be recovered later as long as the analog stage did not clip.</p></details>
+<details><summary>Is dither needed when exporting MP3 or AAC?</summary><p>Lossy encoders discard and re-code the signal in their own way. The step that needs dither is any fixed-point PCM file you create at reduced word length, such as a 16-bit WAV made before encoding. If your encoder accepts the 24-bit or float master directly, that intermediate reduction, and its dither, can be skipped.</p></details>
+<details><summary>Why does a dithered 16-bit file measure about 93 dB SNR instead of 98 dB?</summary><p>TPDF dither triples the error power, from Δ²/12 to Δ²/4, a 4.8 dB rise. That small cost buys an error that is independent of the signal.</p></details>
+<details><summary>Can I dither twice by accident?</summary><p>Yes. A plug-in on the master bus plus a dither option in the export dialog applies two stages. Use one or the other, and make sure nothing processes the audio after it.</p></details>
+<details><summary>Does a higher bit depth improve high-frequency detail?</summary><p>No. Frequency range is set by the sample rate. Bit depth only sets the noise floor and therefore the usable dynamic range.</p></details>
+</section>
+
+<section class="sources"><h2 id="sources">Sources and further reading</h2><ol>
+<li><a href="https://hajim.rochester.edu/ece/sites/zduan/teaching/ece472/reading/Lipshitz_1992.pdf" rel="noopener" target="_blank">Lipshitz, Wannamaker and Vanderkooy, Quantization and Dither: A Theoretical Survey (JAES, 1992)</a> — RPDF vs TPDF, noise modulation and the Δ²/4 result</li>
+<li><a href="https://www.soundonsound.com/sound-advice/q-do-really-need-use-dithering" rel="noopener" target="_blank">Sound On Sound: Do I really need to use dithering?</a> — truncation distortion, dither at 24 to 16-bit, noise shaping and limiter ceilings</li>
+<li><a href="https://www.analog.com/media/en/training-seminars/tutorials/MT-001.pdf" rel="noopener" target="_blank">Analog Devices MT-001</a> — derivation of 6.02N + 1.76 dB</li>
+<li><a href="https://www.ti.com/product/PCM4222" rel="noopener" target="_blank">Texas Instruments PCM4222 product page</a> — measured dynamic range of a high-end 24-bit audio ADC</li>
+<li><a href="https://support.sounddevices.com/hc/en-us/articles/44084281511963-How-is-a-32-Bit-Float-File-Recorded" rel="noopener" target="_blank">Sound Devices: How is a 32-bit float file recorded?</a> — multi-stage conversion and format vs device dynamic range</li>
+<li><a href="https://en.wikipedia.org/wiki/Single-precision_floating-point_format" rel="noopener" target="_blank">Single-precision floating-point format</a> — IEEE 754 binary32 layout and range</li>
+<li><a href="https://www.dspguide.com/ch3.htm" rel="noopener" target="_blank">Steven W. Smith, The Scientist and Engineer's Guide to DSP, chapter 3</a> — quantization noise and dithering</li>
+<li><a href="https://loc.gov/preservation/digital/formats/fdd/fdd000011.shtml" rel="noopener" target="_blank">Library of Congress: Compact Disc Digital Audio format description</a> — 44.1 kHz, 16-bit PCM Red Book parameters</li>
+</ol></section>
+
+<div class="byline"><div><b>About this guide.</b> Written and fact-checked by the Quantization.com editorial team against the primary sources listed above. Spotted an error or an outdated command? <a href="../contact.html?topic=Correction">Send a correction</a> — we fix verified issues within a few days. See our <a href="../about.html#editorial-policy">editorial policy</a>.</div></div>
+<div class="share" aria-label="Share this page"><a class="btn btn-ghost btn-sm" data-share="copy" href="#">Copy link</a><a class="btn btn-ghost btn-sm" data-share="x" href="#">Post on X</a><a class="btn btn-ghost btn-sm" data-share="linkedin" href="#">LinkedIn</a><a class="btn btn-ghost btn-sm" data-share="reddit" href="#">Reddit</a><a class="btn btn-ghost btn-sm" data-share="hn" href="#">Hacker News</a></div>
+</div>
+<aside class="art-side"><nav class="toc" aria-label="On this page"><h2>On this page</h2><ol><li><a href="#what-bit-depth-means">What bit depth controls, and what it doesn't</a></li><li><a href="#32-bit-float">What 32-bit float gives you</a></li><li><a href="#truncation-distortion">Truncation distortion at low levels</a></li><li><a href="#dither-types">Dither types: RPDF, TPDF and noise shaping</a></li><li><a href="#when-to-dither">When to dither, and when not to</a></li><li><a href="#file-size">File size math</a></li><li><a href="#takeaways">Key takeaways</a></li><li><a href="#faq">Frequently asked questions</a></li><li><a href="#sources">Sources and further reading</a></li></ol></nav><div class="side-cta"><h3>Try the tools</h3><p>Every formula on this page has a live calculator.</p><a class="btn btn-ghost btn-sm" href="../tools/index.html">Open the tools</a></div></aside>
+</div>
+<section class="related"><h2>Keep reading</h2><ul class="alist"><li><a href="../learn/adc-quantization-error.html"><span class="track track-signal">Signals & audio</span><h3>ADC quantization error, SQNR and ENOB explained</h3><p>LSB size, the ±½ LSB error bound, the Δ²/12 noise model, the 6.02N + 1.76 dB derivation, ENOB, oversampling and dither in one place.</p><span class="meta">9 min</span></a></li><li><a href="../learn/gguf-quant-types.html"><span class="track track-ai">AI models</span><h3>GGUF quant types explained: legacy, k-quants and i-quants</h3><p>Decode GGUF names like Q4_K_M and IQ3_XXS, compare bits per weight, and learn to pick and build the right llama.cpp quant.</p><span class="meta">9 min</span></a></li><li><a href="../learn/gptq-vs-awq-vs-gguf.html"><span class="track track-ai">AI models</span><h3>GPTQ vs AWQ vs GGUF vs EXL2: LLM quantization methods compared</h3><p>How GPTQ, AWQ, GGUF, EXL2/EXL3, bitsandbytes, HQQ and FP8 work, where each runs best, and a scenario-by-scenario guide to picking one.</p><span class="meta">10 min</span></a></li><li><a href="../learn/hardware-for-local-llms.html"><span class="track track-ai">AI models</span><h3>Choosing hardware for local LLMs: memory first, bandwidth second</h3><p>What fits in 8–80 GB at Q4, Q5 and Q8, why memory bandwidth caps tokens per second, and how GPUs, Apple Silicon and CPUs compare.</p><span class="meta">10 min</span></a></li></ul></section>
+</article>
+</main>
+<footer class="site"><div class="wrap">
+<div class="foot-grid">
+<div><a class="logo" href="../index.html"><svg viewBox="0 0 32 32" aria-hidden="true"><rect x=".5" y=".5" width="31" height="31" rx="8" fill="#121A2E" stroke="var(--rule-2)"/><path d="M5 20c3-11 7-11 11 0s7 11 11 0" fill="none" stroke="var(--signal)" stroke-width="2" opacity=".9"/><path d="M5 22h4v-6h4v-5h6v5h4v6h4" fill="none" stroke="var(--step)" stroke-width="2.4" stroke-linejoin="round"/></svg><span>Quantization<span class="tld">.com</span></span></a>
+<p class="muted small" style="margin-top:12px;max-width:40ch">Calculators, visual explainers and format guides for representing models, signals and sound with fewer bits — and measuring what it costs.</p>
+<form class="js-form inline-form" data-subject="Newsletter signup" data-ok="You're subscribed. The next issue lands next week." style="margin-top:14px">
+<input type="email" name="email" required placeholder="you@example.com" aria-label="Email for the weekly newsletter"><input class="hp" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true"><input type="hidden" name="list" value="Weekly explainer"><button class="btn btn-primary btn-sm" type="submit">Subscribe</button><div class="form-msg" role="status"></div></form></div>
+<div><h4>Tools</h4><ul><li><a href="../tools/vram-calculator.html">LLM VRAM calculator</a></li><li><a href="../tools/quantization-playground.html">Quantization playground</a></li><li><a href="../tools/adc-calculator.html">ADC and bit-depth calculator</a></li><li><a href="../tools/music-quantizer.html">MIDI quantize and swing lab</a></li><li><a href="../tools/energy-levels.html">Energy levels calculator</a></li></ul></div>
+<div><h4>Learn</h4><ul><li><a href="../learn/index.html">All guides</a></li><li><a href="../learn/llm-quantization-guide.html">LLM quantization guide</a></li><li><a href="../formats.html">Formats atlas</a></li><li><a href="../glossary.html">Glossary</a></li><li><a href="../cheat-sheet.html">Cheat sheet</a></li><li><a href="../videos.html">Videos</a></li><li><a href="../resources.html">Resources</a></li></ul></div>
+<div><h4>Get involved</h4><ul><li><a href="../get-optimized.html">Free optimization plan</a></li><li><a href="../challenge.html">Quantization Challenge</a></li><li><a href="../support.html">Support the project</a></li><li><a href="../careers.html">Careers and talent</a></li><li><a href="../advertise.html">Advertise and sponsor</a></li></ul></div>
+<div><h4>Company</h4><ul><li><a href="../about.html">About and editorial policy</a></li><li><a href="../contact.html">Contact</a></li><li><a href="https://web.works/contact" target="_blank" rel="noopener">Buy, partner or sponsor</a></li><li><a href="../privacy.html">Privacy policy</a></li><li><a href="../terms.html">Terms of use</a></li><li><a href="../cookies.html">Cookie policy</a></li><li><a href="../disclaimer.html">Disclaimer</a></li><li><a href="../trademark.html">Trademark and copyright</a></li><li><a href="../sitemap.html">Sitemap</a></li></ul></div>
+</div>
+<div class="legal">
+<p><b>Trademark and copyright disclosure.</b> “Quantization” is a generic scientific and engineering term. Quantization.com claims no exclusive rights in the word and is an independent educational publication, not affiliated with, endorsed by or sponsored by any company, project, product or person that uses the term. Product names, model names and logos mentioned on this site (for example llama.cpp, GGUF, PyTorch, TensorFlow, NVIDIA, Apple, Hugging Face) are trademarks of their respective owners and are used for identification only. <a href="../trademark.html">Read the full disclosure</a>.</p>
+<p>Content is for general education and is not professional engineering, legal or financial advice. This site shows advertising served by Google AdSense. © <span class="year">2026</span> Quantization.com. Original text, tools, code and graphics © Quantization.com unless otherwise credited.</p>
+</div></div></footer>
+<div class="mcta"><a class="btn btn-ghost" href="../tools/vram-calculator.html">VRAM calculator</a><a class="btn btn-primary" href="../get-optimized.html">Free plan</a></div>
+<div class="cookie" id="cookie" role="dialog" aria-label="Cookie choices"><p>We use essential browser storage for site settings and, with your consent, cookies from Google to personalise and measure ads. Choose “Essential only” to receive non-personalised ads. Details in our <a href="../cookies.html">cookie policy</a>.</p>
+<div class="acts"><button class="btn btn-primary btn-sm" type="button" data-consent="all">Accept all</button><button class="btn btn-ghost btn-sm" type="button" data-consent="essential">Essential only</button></div></div>
+<script src="../assets/js/site.js" defer></script>
+</body>
+</html>
